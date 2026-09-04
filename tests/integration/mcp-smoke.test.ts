@@ -123,6 +123,7 @@ describe("MCP stdio server (smoke)", () => {
       "wanderlog_list_journal",
       "wanderlog_list_trips",
       "wanderlog_move_block",
+      "wanderlog_move_place",
       "wanderlog_remove_expense",
       "wanderlog_remove_journal",
       "wanderlog_remove_note",

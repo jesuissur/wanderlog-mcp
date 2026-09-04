@@ -18,6 +18,7 @@ The agent calls the tools, interleaves places and notes for each day, adds hotel
 
 ## What's New (Unreleased)
 
+- `wanderlog_move_place` moves an existing place between custom lists and itinerary days while preserving its complete metadata.
 - Custom-list lifecycle operations now reject duplicate or ambiguous section headings instead of silently changing the first match.
 - `wanderlog_get_trip` lists every place list, including empty ones, and counts places from the itinerary instead of Wanderlog's lagging counter.
 - Untitled lists (every new Wanderlog trip has one) can be targeted as `"untitled list"`, `"2nd untitled list"`, or `"last untitled list"` by every tool that takes a section.
@@ -112,6 +113,7 @@ and a ryokan in Shinjuku."
 | `wanderlog_annotate_place` | Update an existing place with a note, start/end time, or both |
 | `wanderlog_remove_place` | Remove a place by natural-language reference |
 | `wanderlog_move_block` | Move an existing place or reservation block within its current section |
+| `wanderlog_move_place` | Move an existing place to another undated list or itinerary day, preserving its metadata |
 | `wanderlog_update_trip_dates` | Change a trip's date range |
 | `wanderlog_rename_day` | Rename a day's heading (e.g. `"Barcelona"` → `"Arrival — Feria de Abril"`) |
 | `wanderlog_add_section` | Create a uniquely named custom list, optionally after another section |
@@ -133,6 +135,18 @@ or duplicate targets return errors without submitting a mutation.
 Untitled lists have no heading to match, so they are referenced by trip order: `"untitled list"`
 when there is only one, otherwise `"1st untitled list"`, `"2nd untitled list"`, `"last untitled list"`.
 `wanderlog_get_trip` labels each one with the reference to use.
+
+### Moving places between lists and days
+
+`wanderlog_move_place` moves the existing place block rather than creating a copy, so its note,
+start/end time, images, booking fields, and unknown metadata travel with it. Supply exactly one
+destination: `target_section` for an undated custom list (or `Places to visit`), or `target_day`
+for `day 2`, `May 4`, or an ISO date such as `2026-05-04`.
+
+An optional `position` is 1-based among places at the destination; omit it to append after the
+last place. If a place name occurs more than once, qualify `place_ref` with an ordinal and/or
+day, for example `2nd Starbucks on day 3`. Ambiguous places, duplicate section headings,
+unknown days, and out-of-range positions return errors without submitting a mutation.
 
 ## Prerequisites
 

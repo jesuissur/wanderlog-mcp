@@ -24,6 +24,7 @@ The agent calls the tools, interleaves places and notes for each day, adds hotel
 - Untitled lists (every new Wanderlog trip has one) can be targeted as `"untitled list"`, `"2nd untitled list"`, or `"last untitled list"` by every tool that takes a section.
 - `wanderlog_search_hotels` — search Wanderlog's hotel aggregator across airbnb, expedia, google, and kayak. Returns ranked offers with per-vendor price comparison and faceted filter discovery so the LLM never has to memorise Wanderlog's internal enum values.
 - A failed startup authentication probe now gets one shared retry on the first tool call, allowing valid sessions to recover from a transient network or proxy error without restarting the server.
+- `wanderlog_annotate_place` now replaces a place's existing note instead of appending the new text to it, including notes that contain images.
 
 ## What's New in v0.3.1
 

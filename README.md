@@ -27,6 +27,7 @@ The agent calls the tools, interleaves places and notes for each day, adds hotel
 - `wanderlog_annotate_place` now replaces a place's existing note instead of appending the new text to it, including notes that contain images.
 - Markdown links `[label](https://…)` in place notes, notes, and transit notes become clickable links in Wanderlog. Cached notes keep their links, formatting, and images.
 - Lists that share a heading can be targeted by trip order (`"2nd Food"`), so duplicates can be renamed apart.
+- Place lookups no longer fail with "Place not found" when Wanderlog's autocomplete returns an entry with no place ID ahead of the real result. This affected adding places, hotels, journal stops and transit endpoints, and `wanderlog_search_places` listed those entries as `undefined`.
 
 ## What's New in v0.3.1
 

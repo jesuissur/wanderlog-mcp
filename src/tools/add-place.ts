@@ -9,12 +9,13 @@ import {
   findBlockById,
   findDaySectionByDate,
   findPlacesToVisitSection,
-  findSectionByRef,
   findTripCenter,
+  requireUniqueSection,
   requireUserId,
   submitOp,
   validateTimeInputs,
 } from "./shared.js";
+import { describeSectionAt } from "../resolvers/section.js";
 
 export const addPlaceInputSchema = {
   trip_key: z
@@ -134,13 +135,8 @@ export async function addPlace(
         targets.push({ sectionId: found.section.id, label: `day ${daySection.date}` });
       }
       if (args.section) {
-        const found = findSectionByRef(trip, args.section);
-        if (!found) {
-          throw new WanderlogValidationError(
-            `Section "${args.section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-          );
-        }
-        targets.push({ sectionId: found.section.id, label: `section "${args.section}"` });
+        const found = requireUniqueSection(trip, args.section);
+        targets.push({ sectionId: found.section.id, label: describeSectionAt(trip, found.index) });
       }
       if (targets.length === 0) {
         const places = findPlacesToVisitSection(trip);

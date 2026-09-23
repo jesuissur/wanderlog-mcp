@@ -3,14 +3,13 @@ import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import {
-  ambiguousSectionMessage,
   hasUndatedSectionHeaded,
   isReservedSectionHeading,
   reservedSectionHeadingMessage,
 } from "../resolvers/section.js";
 import {
   buildSectionObject,
-  resolveSectionRef,
+  requireUniqueSection,
   requireUserId,
   submitOp,
 } from "./shared.js";
@@ -73,22 +72,11 @@ export async function addSection(
       }
       let insertIndex: number;
       if (args.after_section) {
-        const resolved = resolveSectionRef(trip, args.after_section);
-        if (resolved.kind === "none") {
-          throw new WanderlogValidationError(
-            `Section "${args.after_section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-          );
-        }
-        if (resolved.kind === "ambiguous") {
-          throw new WanderlogValidationError(
-            ambiguousSectionMessage(
-              args.after_section,
-              resolved.candidates,
-              "Rename the duplicates in Wanderlog before choosing an insertion point.",
-            ),
-          );
-        }
-        const found = resolved.match;
+        const found = requireUniqueSection(
+          trip,
+          args.after_section,
+          "Rename the duplicates in Wanderlog before choosing an insertion point.",
+        );
         insertIndex = found.index + 1;
       } else {
         insertIndex = trip.itinerary.sections.length;

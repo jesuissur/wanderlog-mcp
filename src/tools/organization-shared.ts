@@ -1,13 +1,13 @@
 import { WanderlogNotFoundError, WanderlogValidationError } from "../errors.js";
 import { resolveDay } from "../resolvers/day.js";
 import { resolvePlaceRef, type PlaceRefMatch } from "../resolvers/place-ref.js";
-import { ambiguousSectionMessage, describeSectionAt } from "../resolvers/section.js";
+import { describeSectionAt } from "../resolvers/section.js";
 import type { PlaceBlock, Section, TripPlan } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 import {
   findDaySectionByDate,
   isSystemSection,
-  resolveSectionRef,
+  requireUniqueSection,
   type SectionMatch,
 } from "./shared.js";
 
@@ -34,34 +34,20 @@ export function resolveOrganizationTarget(
   }
 
   const ref = args.section!;
-  const resolved = resolveSectionRef(trip, ref);
-  if (resolved.kind === "none") {
-    throw new WanderlogValidationError(
-      `Section "${ref}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-    );
-  }
-  if (resolved.kind === "ambiguous") {
-    throw new WanderlogValidationError(
-      ambiguousSectionMessage(
-        ref,
-        resolved.candidates,
-        "Rename the duplicate lists before retrying.",
-      ),
-    );
-  }
-  if (resolved.match.section.mode === "dayPlan") {
+  const found = requireUniqueSection(trip, ref, "Rename the duplicate lists before retrying.");
+  if (found.section.mode === "dayPlan") {
     throw new WanderlogValidationError(
       `Section "${ref}" is a dated section. Use the day parameter instead.`,
     );
   }
-  if (isSystemSection(resolved.match.section)) {
+  if (isSystemSection(found.section)) {
     throw new WanderlogValidationError(
       `Section "${ref}" is a system section and cannot be used as a custom place-list target.`,
     );
   }
   return {
-    ...resolved.match,
-    label: describeSectionAt(trip, resolved.match.index),
+    ...found,
+    label: describeSectionAt(trip, found.index),
   };
 }
 

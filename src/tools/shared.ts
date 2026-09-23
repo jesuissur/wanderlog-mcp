@@ -4,6 +4,8 @@ import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
 import {
+  ambiguousSectionMessage,
+  describeSectionAt,
   findPlacesToVisitSection,
   resolveSectionRef,
   type SectionMatch,
@@ -165,19 +167,27 @@ export function buildSectionObject(heading: string): Section {
 }
 
 /**
- * Resolves a natural-language section reference to its index and Section object.
- * Resolution order:
- *   1. "places to visit" / "places" → the default placeList section (via findPlacesToVisitSection)
- *   2. "untitled list" / "2nd untitled list" → untitled custom lists in trip order
- *   3. Case-insensitive heading match across all sections
- * Returns null when no section matches or the match is ambiguous.
+ * Resolves a section ref to exactly one section, or throws the error the agent
+ * needs for its retry. `duplicateHint` is the advice for two lists sharing a
+ * heading, which no reference can tell apart.
  */
-export function findSectionByRef(
+export function requireUniqueSection(
   trip: TripPlan,
   ref: string,
-): { index: number; section: Section } | null {
+  duplicateHint = "Rename the duplicate lists in Wanderlog before retrying.",
+): SectionMatch {
   const resolved = resolveSectionRef(trip, ref);
-  return resolved.kind === "unique" ? resolved.match : null;
+  if (resolved.kind === "none") {
+    throw new WanderlogValidationError(
+      `Section "${ref}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
+    );
+  }
+  if (resolved.kind === "ambiguous") {
+    throw new WanderlogValidationError(
+      ambiguousSectionMessage(ref, resolved.candidates, duplicateHint),
+    );
+  }
+  return resolved.match;
 }
 
 const SYSTEM_SECTION_TYPES = new Set([
@@ -380,12 +390,7 @@ export function findBlockTargetSection(
   blockLabel: string,
 ): TargetSection {
   if (target.section !== undefined) {
-    const found = findSectionByRef(trip, target.section);
-    if (!found) {
-      throw new WanderlogValidationError(
-        `Section "${target.section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-      );
-    }
+    const found = requireUniqueSection(trip, target.section);
     if (found.section.mode === "dayPlan") {
       throw new WanderlogValidationError(
         `Section "${found.section.heading || target.section}" is a dated section. Use the "day" parameter to add a ${blockLabel} to an itinerary day.`,
@@ -394,7 +399,7 @@ export function findBlockTargetSection(
     return {
       index: found.index,
       section: found.section,
-      label: `section "${found.section.heading || target.section}"`,
+      label: describeSectionAt(trip, found.index),
     };
   }
 

@@ -3,8 +3,8 @@ import type { AppContext } from "../../src/context.ts";
 import { applyOp, type Json0Op } from "../../src/ot/apply.ts";
 import {
   buildSectionObject,
-  findSectionByRef,
   resolveSectionRef,
+  type SectionMatch,
 } from "../../src/tools/shared.ts";
 import { addSection } from "../../src/tools/add-section.ts";
 import { deleteSection } from "../../src/tools/delete-section.ts";
@@ -12,6 +12,12 @@ import { updateSection } from "../../src/tools/update-section.ts";
 import type { Section, TripPlan } from "../../src/types.ts";
 import { checklistTrip } from "../fixtures/checklist-trip.ts";
 import { customSectionsTrip } from "../fixtures/custom-sections-trip.ts";
+
+/** The unique match, or null when the ref matches no section or several. */
+function findSectionByRef(trip: TripPlan, ref: string): SectionMatch | null {
+  const resolved = resolveSectionRef(trip, ref);
+  return resolved.kind === "unique" ? resolved.match : null;
+}
 
 function fresh(trip: TripPlan): TripPlan {
   return structuredClone(trip);

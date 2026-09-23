@@ -3,7 +3,6 @@ import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import {
-  ambiguousSectionMessage,
   describeSectionAt,
   hasUndatedSectionHeaded,
   isReservedSectionHeading,
@@ -11,7 +10,7 @@ import {
 } from "../resolvers/section.js";
 import {
   isCustomSection,
-  resolveSectionRef,
+  requireUniqueSection,
   submitOp,
 } from "./shared.js";
 
@@ -59,23 +58,11 @@ export async function updateSection(
     const newHeading = args.heading;
     const result = await submitOp(ctx, args.trip_key, async (entry, submit) => {
       const trip = entry.snapshot;
-      const resolved = resolveSectionRef(trip, args.section);
-      if (resolved.kind === "none") {
-        throw new WanderlogValidationError(
-          `Section "${args.section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-        );
-      }
-      if (resolved.kind === "ambiguous") {
-        throw new WanderlogValidationError(
-          ambiguousSectionMessage(
-            args.section,
-            resolved.candidates,
-            "Rename the duplicates in Wanderlog before retrying.",
-          ),
-        );
-      }
-      const found = resolved.match;
-      const { index, section } = found;
+      const { index, section } = requireUniqueSection(
+        trip,
+        args.section,
+        "Rename the duplicates in Wanderlog before retrying.",
+      );
       if (!isCustomSection(trip, index)) {
         const reason = section.mode === "dayPlan"
           ? `Day sections cannot be renamed here. Use wanderlog_rename_day to change a day's heading instead.`

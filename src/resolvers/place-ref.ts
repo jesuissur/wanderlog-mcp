@@ -75,6 +75,13 @@ export function parseOrdinal(ref: string): ParsedOrdinal | null {
   return null;
 }
 
+/** Formats n as "1st", "2nd", "11th", "21st". */
+export function ordinalLabel(n: number): string {
+  const suffix = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]}`;
+}
+
 /**
  * Resolves a free-form natural-language reference to a block in a trip.
  *

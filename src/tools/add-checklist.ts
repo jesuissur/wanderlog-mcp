@@ -33,7 +33,7 @@ export const addChecklistInputSchema = {
     .min(1)
     .optional()
     .describe(
-      "Optional undated section to add the checklist to, identified by its heading (e.g. 'Notes', 'Trip Preparations', or 'Places to visit'). Matching is case-insensitive and takes precedence over 'day'. Omit both to add to the 'Places to visit' list.",
+      "Optional undated section to add the checklist to, identified by its heading (e.g. 'Notes', 'Trip Preparations', or 'Places to visit'). Matching is case-insensitive and takes precedence over 'day'. Omit both to add to the 'Places to visit' list. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
 };
 

@@ -3,8 +3,16 @@ import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import {
-  findPlacesToVisitSection,
-  findSectionByRef,
+  describeSectionAt,
+  hasUndatedSectionHeaded,
+  isReservedSectionHeading,
+  reservedSectionHeadingMessage,
+  untitledListRenumberNote,
+} from "../resolvers/section.js";
+import {
+  isCustomSection,
+  protectedSectionReason,
+  requireUniqueSection,
   submitOp,
 } from "./shared.js";
 
@@ -17,12 +25,12 @@ export const updateSectionInputSchema = {
     .string()
     .min(1)
     .describe(
-      "The section to update, identified by its current heading (e.g. 'Food & Drink', 'Places to visit'). Use wanderlog_get_trip to see available sections.",
+      "The section to update, identified by its current heading (e.g. 'Food & Drink', 'Places to visit'). Use wanderlog_get_trip to see available sections. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
   heading: z
     .string()
     .describe(
-      'New heading for the section. Pass "" (empty string) to clear it back to an untitled section.',
+      "New heading for the section. Must be unique among undated sections, so an empty heading is rejected on any trip that already has an untitled list (every new trip does).",
     ),
 };
 
@@ -30,10 +38,11 @@ export const updateSectionDescription = `
 Renames the heading of a custom section in a Wanderlog trip.
 
 Identify the section by its current heading. Use wanderlog_get_trip to see all sections and
-their current headings if you are unsure. Pass an empty string for "heading" to clear the
-section title.
+their current headings if you are unsure.
 
 Returns a confirmation showing the old and new heading.
+The current heading must identify exactly one section and the new heading must not duplicate
+another undated section.
 `.trim();
 
 type Args = {
@@ -41,8 +50,6 @@ type Args = {
   section: string;
   heading: string;
 };
-
-const SYSTEM_SECTION_TYPES = new Set(["hotels", "flights", "transit"]);
 
 export async function updateSection(
   ctx: AppContext,
@@ -52,27 +59,13 @@ export async function updateSection(
     const newHeading = args.heading;
     const result = await submitOp(ctx, args.trip_key, async (entry, submit) => {
       const trip = entry.snapshot;
-      const found = findSectionByRef(trip, args.section);
-      if (!found) {
-        throw new WanderlogValidationError(
-          `Section "${args.section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-        );
-      }
-      const { index, section } = found;
-      if (section.mode === "dayPlan") {
-        throw new WanderlogValidationError(
-          `Day sections cannot be renamed here. Use wanderlog_rename_day to change a day's heading instead.`,
-        );
-      }
-      if (findPlacesToVisitSection(trip)?.index === index) {
-        throw new WanderlogValidationError(
-          `The "Places to visit" section cannot be renamed — it is the trip's default place list. Use wanderlog_get_trip to see your custom sections.`,
-        );
-      }
-      if (SYSTEM_SECTION_TYPES.has(section.type)) {
-        throw new WanderlogValidationError(
-          `The "${section.heading || section.type}" section is a system section and cannot be renamed. Use wanderlog_get_trip to see your custom sections.`,
-        );
+      const { index, section } = requireUniqueSection(
+        trip,
+        args.section,
+        "Rename the duplicates in Wanderlog before retrying.",
+      );
+      if (!isCustomSection(trip, index)) {
+        throw new WanderlogValidationError(protectedSectionReason(trip, index, "renamed"));
       }
       const oldHeading = section.heading;
       if (oldHeading === newHeading) {
@@ -87,6 +80,14 @@ export async function updateSection(
           },
         };
       }
+      if (isReservedSectionHeading(newHeading)) {
+        throw new WanderlogValidationError(reservedSectionHeadingMessage(newHeading));
+      }
+      if (hasUndatedSectionHeaded(trip, newHeading, section.id)) {
+        throw new WanderlogValidationError(
+          `A different section named "${newHeading || "(untitled)"}" already exists. Choose a unique heading so future mutations can target it safely.`,
+        );
+      }
       const ops: Json0Op[] = [
         {
           p: ["itinerary", "sections", index, "heading"],
@@ -95,13 +96,16 @@ export async function updateSection(
         },
       ];
       await submit(ops);
-      return { oldHeading, tripTitle: trip.title };
+      return {
+        oldLabel: describeSectionAt(trip, index),
+        renumberNote: untitledListRenumberNote(trip, index),
+        tripTitle: trip.title,
+      };
     });
     if ("response" in result && result.response) return result.response;
 
-    const oldLabel = result.oldHeading || "(untitled)";
     const newLabel = newHeading || "(untitled)";
-    const text = `Renamed section "${oldLabel}" → "${newLabel}" in "${result.tripTitle}".`;
+    const text = `Renamed ${result.oldLabel} → "${newLabel}" in "${result.tripTitle}".${result.renumberNote}`;
     return { content: [{ type: "text", text }] };
   } catch (err) {
     const msg =

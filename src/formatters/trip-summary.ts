@@ -1,4 +1,6 @@
 import { tripForwardingEmail } from "../forwarding-email.js";
+import { findPlacesToVisitSection, isPlaceList, untitledListLabels } from "../resolvers/section.js";
+import { isPlaceBlock } from "../types.js";
 import type {
   Block,
   ChecklistBlock,
@@ -58,16 +60,34 @@ export function formatTrip(
   if (dayFilter) return formatDay(trip, dayFilter, format);
 
   const parts: string[] = [formatTripHeader(trip, format)];
+  const listHeadings = placeListHeadings(trip);
 
-  for (const section of trip.itinerary.sections) {
-    const rendered = renderSection(section, format);
+  trip.itinerary.sections.forEach((section, index) => {
+    const rendered = renderSection(section, listHeadings.get(index), format);
     if (rendered) parts.push("", rendered);
-  }
+  });
 
   return parts.join("\n");
 }
 
-function renderSection(section: Section, format: ResponseFormat): string | null {
+/**
+ * Headings for place lists whose stored heading can't be passed back to the
+ * section tools: the default list, whose heading may be empty, and untitled
+ * lists, labelled with the reference the tools resolve.
+ */
+function placeListHeadings(trip: TripPlan): Map<number, string> {
+  const headings = new Map<number, string>();
+  for (const [index, label] of untitledListLabels(trip)) headings.set(index, `(${label})`);
+  const defaultList = findPlacesToVisitSection(trip);
+  if (defaultList) headings.set(defaultList.index, "Places to visit");
+  return headings;
+}
+
+function renderSection(
+  section: Section,
+  headingOverride: string | undefined,
+  format: ResponseFormat,
+): string | null {
   if (section.mode === "dayPlan" && section.date) {
     return renderDaySection(section, format);
   }
@@ -76,16 +96,19 @@ function renderSection(section: Section, format: ResponseFormat): string | null 
   const blockLines = (section.blocks ?? [])
     .map((b) => formatBlockLine(b, format))
     .filter(Boolean) as string[];
+  const isEmpty = !sectionText && blockLines.length === 0;
 
-  if (!sectionText && blockLines.length === 0) return null;
+  // Place lists are rendered even when empty: they are targets for add_place and the section tools.
+  if (isEmpty && !isPlaceList(section)) return null;
 
   const icon = sectionIcon(section);
-  const heading = section.heading?.trim() || sectionDefaultHeading(section);
+  const heading = headingOverride ?? (section.heading?.trim() || sectionDefaultHeading(section));
   const parts = [`${icon} ${heading}`];
   if (sectionText) parts.push(sectionText);
   if (blockLines.length > 0) {
     parts.push(blockLines.map((l) => `  • ${l}`).join("\n"));
   }
+  if (isEmpty) parts.push("  (empty)");
   return parts.join("\n");
 }
 
@@ -134,7 +157,7 @@ function sectionDefaultHeading(section: Section): string {
 
 function formatTripHeader(trip: TripPlan, format: ResponseFormat): string {
   const dates = `${trip.startDate} → ${trip.endDate}`;
-  const base = `${trip.title} · ${dates} · ${trip.days} days · ${trip.placeCount} places`;
+  const base = `${trip.title} · ${dates} · ${trip.days} days · ${countDistinctPlaces(trip)} places`;
   if (format === "concise") return base;
 
   const extras: string[] = [
@@ -147,6 +170,18 @@ function formatTripHeader(trip: TripPlan, format: ResponseFormat): string {
   const contributorNames = trip.contributors?.map((c) => c.username).join(", ");
   if (contributorNames) extras.push(`Contributors: ${contributorNames}`);
   return extras.join("\n");
+}
+
+/**
+ * Counted from the blocks because the server's `placeCount` lags edits and
+ * disagrees with the itinerary on live trips. Each place_id counts once
+ * wherever it appears; a pin without one counts on its own.
+ */
+function countDistinctPlaces(trip: TripPlan): number {
+  const placeKeys = trip.itinerary.sections.flatMap((section) =>
+    section.blocks.filter(isPlaceBlock).map((block) => block.place.place_id || `block:${block.id}`),
+  );
+  return new Set(placeKeys).size;
 }
 
 function formatDay(

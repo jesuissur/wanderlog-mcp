@@ -3,6 +3,14 @@ import type { CacheEntry } from "../cache/trip-cache.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
+import {
+  ambiguousSectionMessage,
+  describeSectionAt,
+  findPlacesToVisitSection,
+  resolveSectionRef,
+  type SectionMatch,
+  type SectionRefResult,
+} from "../resolvers/section.js";
 import type {
   Block,
   ChecklistItem,
@@ -14,6 +22,8 @@ import type {
   TripPlan,
 } from "../types.js";
 import { isPlaceBlock } from "../types.js";
+
+export { findPlacesToVisitSection, resolveSectionRef, type SectionMatch, type SectionRefResult };
 
 /**
  * Per-trip mutex — serializes submits against the same trip so concurrent
@@ -157,27 +167,66 @@ export function buildSectionObject(heading: string): Section {
 }
 
 /**
- * Resolves a natural-language section reference to its index and Section object.
- * Resolution order:
- *   1. "places to visit" / "places" → the default placeList section (via findPlacesToVisitSection)
- *   2. Case-insensitive heading match across all sections
- * Returns null when no section matches.
+ * Resolves a section ref to exactly one section, or throws the error the agent
+ * needs for its retry. `duplicateHint` is the advice for two lists sharing a
+ * heading, which no reference can tell apart.
  */
-export function findSectionByRef(
+export function requireUniqueSection(
   trip: TripPlan,
   ref: string,
-): { index: number; section: Section } | null {
-  const normalized = ref.trim().toLowerCase();
-  if (normalized === "places to visit" || normalized === "places") {
-    return findPlacesToVisitSection(trip);
+  duplicateHint = "Rename the duplicate lists in Wanderlog before retrying.",
+): SectionMatch {
+  const resolved = resolveSectionRef(trip, ref);
+  if (resolved.kind === "none") {
+    throw new WanderlogValidationError(
+      `Section "${ref}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
+    );
   }
-  for (let i = 0; i < trip.itinerary.sections.length; i++) {
-    const s = trip.itinerary.sections[i]!;
-    if (s.heading.trim().toLowerCase() === normalized) {
-      return { index: i, section: s };
-    }
+  if (resolved.kind === "ambiguous") {
+    throw new WanderlogValidationError(
+      ambiguousSectionMessage(ref, resolved.candidates, duplicateHint),
+    );
   }
-  return null;
+  return resolved.match;
+}
+
+const SYSTEM_SECTION_TYPES = new Set([
+  "hotels",
+  "flights",
+  "transit",
+  "rentalCars",
+]);
+
+export function isSystemSection(section: Section): boolean {
+  return SYSTEM_SECTION_TYPES.has(section.type);
+}
+
+const DAY_SECTION_ALTERNATIVE = {
+  renamed: "Use wanderlog_rename_day to change a day's heading instead.",
+  deleted: "Use wanderlog_update_trip_dates to change the trip's date range instead.",
+};
+
+/** Why the section at `index` is not custom, for rename and delete refusals. */
+export function protectedSectionReason(
+  trip: TripPlan,
+  index: number,
+  action: keyof typeof DAY_SECTION_ALTERNATIVE,
+): string {
+  const section = trip.itinerary.sections[index]!;
+  if (section.mode === "dayPlan") {
+    return `Day sections cannot be ${action} here. ${DAY_SECTION_ALTERNATIVE[action]}`;
+  }
+  if (findPlacesToVisitSection(trip)?.index === index) {
+    return `"Places to visit" cannot be ${action}: it is the trip's default place list. Use wanderlog_get_trip to see your custom sections.`;
+  }
+  return `${describeSectionAt(trip, index)} is a system section and cannot be ${action}. Use wanderlog_get_trip to see your custom sections.`;
+}
+
+/** Custom undated lists that users may rename, delete, or reorder. */
+export function isCustomSection(trip: TripPlan, index: number): boolean {
+  const section = trip.itinerary.sections[index];
+  if (!section || section.mode === "dayPlan" || isSystemSection(section)) return false;
+  return findPlacesToVisitSection(trip)?.index !== index;
 }
 
 export function findBlockById(
@@ -265,27 +314,6 @@ export function buildPlaceBlock(
   if (extras.startTime) base.startTime = extras.startTime;
   if (extras.endTime) base.endTime = extras.endTime;
   return base as unknown as Block;
-}
-
-/**
- * Finds the "Places to visit" section (the default normal+placeList section
- * at the top of every trip). Returns its index in trip.itinerary.sections.
- */
-export function findPlacesToVisitSection(trip: TripPlan): {
-  index: number;
-  section: Section;
-} | null {
-  for (let i = 0; i < trip.itinerary.sections.length; i++) {
-    const s = trip.itinerary.sections[i]!;
-    if (
-      s.type === "normal" &&
-      s.mode === "placeList" &&
-      (s.heading === "Places to visit" || s.heading === "")
-    ) {
-      return { index: i, section: s };
-    }
-  }
-  return null;
 }
 
 /** Finds the first hotels-type section in the trip. */
@@ -383,12 +411,7 @@ export function findBlockTargetSection(
   blockLabel: string,
 ): TargetSection {
   if (target.section !== undefined) {
-    const found = findSectionByRef(trip, target.section);
-    if (!found) {
-      throw new WanderlogValidationError(
-        `Section "${target.section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-      );
-    }
+    const found = requireUniqueSection(trip, target.section);
     if (found.section.mode === "dayPlan") {
       throw new WanderlogValidationError(
         `Section "${found.section.heading || target.section}" is a dated section. Use the "day" parameter to add a ${blockLabel} to an itinerary day.`,
@@ -397,7 +420,7 @@ export function findBlockTargetSection(
     return {
       index: found.index,
       section: found.section,
-      label: `section "${found.section.heading || target.section}"`,
+      label: describeSectionAt(trip, found.index),
     };
   }
 

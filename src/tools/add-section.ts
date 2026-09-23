@@ -3,8 +3,13 @@ import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import {
+  hasUndatedSectionHeaded,
+  isReservedSectionHeading,
+  reservedSectionHeadingMessage,
+} from "../resolvers/section.js";
+import {
   buildSectionObject,
-  findSectionByRef,
+  requireUniqueSection,
   requireUserId,
   submitOp,
 } from "./shared.js";
@@ -18,13 +23,13 @@ export const addSectionInputSchema = {
     .string()
     .optional()
     .describe(
-      "Heading for the new section (e.g. 'Food & Drink', 'Must-See Spots'). Omit for an untitled section.",
+      "Heading for the new section (e.g. 'Food & Drink', 'Must-See Spots'). Must be unique among undated sections. Every trip already has an untitled list, so omitting the heading is rejected as a duplicate.",
     ),
   after_section: z
     .string()
     .optional()
     .describe(
-      "Insert the new section immediately after an existing section identified by its heading (e.g. 'Places to visit', 'Food & Drink'). Omit to append at the end of the trip.",
+      "Insert the new section immediately after an existing section identified by its heading (e.g. 'Places to visit', 'Food & Drink'). Omit to append at the end of the trip. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
 };
 
@@ -38,6 +43,8 @@ The new section is empty; add places to it with wanderlog_add_place by passing t
 heading as the "section" parameter, or use wanderlog_add_note / wanderlog_add_checklist.
 
 Returns the heading and position of the inserted section.
+The heading must be unique among undated sections; duplicate or ambiguous insertion targets
+are rejected without making a change.
 `.trim();
 
 type Args = {
@@ -55,14 +62,21 @@ export async function addSection(
     const heading = args.heading ?? "";
     const tripTitle = await submitOp(ctx, args.trip_key, async (entry, submit) => {
       const trip = entry.snapshot;
+      if (isReservedSectionHeading(heading)) {
+        throw new WanderlogValidationError(reservedSectionHeadingMessage(heading));
+      }
+      if (hasUndatedSectionHeaded(trip, heading)) {
+        throw new WanderlogValidationError(
+          `A section named "${heading || "(untitled)"}" already exists in trip "${trip.title}". Choose a unique heading so future mutations can target it safely.`,
+        );
+      }
       let insertIndex: number;
       if (args.after_section) {
-        const found = findSectionByRef(trip, args.after_section);
-        if (!found) {
-          throw new WanderlogValidationError(
-            `Section "${args.after_section}" not found in trip "${trip.title}". Use wanderlog_get_trip to see available sections.`,
-          );
-        }
+        const found = requireUniqueSection(
+          trip,
+          args.after_section,
+          "Rename the duplicates in Wanderlog before choosing an insertion point.",
+        );
         insertIndex = found.index + 1;
       } else {
         insertIndex = trip.itinerary.sections.length;

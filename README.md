@@ -25,6 +25,8 @@ The agent calls the tools, interleaves places and notes for each day, adds hotel
 - `wanderlog_search_hotels` — search Wanderlog's hotel aggregator across airbnb, expedia, google, and kayak. Returns ranked offers with per-vendor price comparison and faceted filter discovery so the LLM never has to memorise Wanderlog's internal enum values.
 - A failed startup authentication probe now gets one shared retry on the first tool call, allowing valid sessions to recover from a transient network or proxy error without restarting the server.
 - `wanderlog_annotate_place` now replaces a place's existing note instead of appending the new text to it, including notes that contain images.
+- Markdown links `[label](https://…)` in place notes, notes, and transit notes become clickable links in Wanderlog. Cached notes keep their links, formatting, and images.
+- Lists that share a heading can be targeted by trip order (`"2nd Food"`), so duplicates can be renamed apart.
 
 ## What's New in v0.3.1
 
@@ -130,8 +132,10 @@ and a ryokan in Shinjuku."
 Custom sections are undated lists outside Wanderlog's protected default/system sections.
 Create one with `wanderlog_add_section`, rename it with `wanderlog_update_section`, and delete
 it with `wanderlog_delete_section`. Deleting is destructive: every block in that section is
-removed. Section headings used by these tools must be unique (matching ignores case); ambiguous
-or duplicate targets return errors without submitting a mutation.
+removed. New and renamed headings must be unique (matching ignores case). Lists that already share
+a heading, for example duplicates made in the Wanderlog UI, are targeted by trip order:
+`"1st Food"`, `"2nd Food"`, `"last Food"`; a bare `"Food"` returns an error without submitting a
+mutation.
 
 Untitled lists have no heading to match, so they are referenced by trip order: `"untitled list"`
 when there is only one, otherwise `"1st untitled list"`, `"2nd untitled list"`, `"last untitled list"`.

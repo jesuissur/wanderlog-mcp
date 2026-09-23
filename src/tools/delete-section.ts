@@ -47,11 +47,7 @@ export async function deleteSection(
   try {
     const result = await submitOp(ctx, args.trip_key, async (entry, submit) => {
       const trip = entry.snapshot;
-      const { index, section } = requireUniqueSection(
-        trip,
-        args.section,
-        "Rename the duplicates in Wanderlog before deleting either list.",
-      );
+      const { index, section } = requireUniqueSection(trip, args.section);
       if (!isCustomSection(trip, index)) {
         throw new WanderlogValidationError(protectedSectionReason(trip, index, "deleted"));
       }

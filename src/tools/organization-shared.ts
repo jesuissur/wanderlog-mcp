@@ -34,7 +34,7 @@ export function resolveOrganizationTarget(
   }
 
   const ref = args.section!;
-  const found = requireUniqueSection(trip, ref, "Rename the duplicate lists before retrying.");
+  const found = requireUniqueSection(trip, ref);
   if (found.section.mode === "dayPlan") {
     throw new WanderlogValidationError(
       `Section "${ref}" is a dated section. Use the day parameter instead.`,

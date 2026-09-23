@@ -3,6 +3,7 @@ import type { CacheEntry } from "../cache/trip-cache.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
+import { noteDelta, noteToDeltaInserts, withTrailingNewline } from "./note-text.js";
 import {
   ambiguousSectionMessage,
   describeSectionAt,
@@ -167,16 +168,8 @@ export function buildSectionObject(heading: string): Section {
   };
 }
 
-/**
- * Resolves a section ref to exactly one section, or throws the error the agent
- * needs for its retry. `duplicateHint` is the advice for two lists sharing a
- * heading, which no reference can tell apart.
- */
-export function requireUniqueSection(
-  trip: TripPlan,
-  ref: string,
-  duplicateHint = "Rename the duplicate lists in Wanderlog before retrying.",
-): SectionMatch {
+/** Resolves a section ref to exactly one section, or throws the error the agent needs for its retry. */
+export function requireUniqueSection(trip: TripPlan, ref: string): SectionMatch {
   const resolved = resolveSectionRef(trip, ref);
   if (resolved.kind === "none") {
     throw new WanderlogValidationError(
@@ -185,7 +178,7 @@ export function requireUniqueSection(
   }
   if (resolved.kind === "ambiguous") {
     throw new WanderlogValidationError(
-      ambiguousSectionMessage(ref, resolved.candidates, duplicateHint),
+      ambiguousSectionMessage(ref, resolved.candidates),
     );
   }
   return resolved.match;
@@ -458,7 +451,7 @@ export function buildTransitBlock(
     depart: args.depart,
     arrive: args.arrive,
     addedBy: { type: "user", userId },
-    text: { ops: [{ insert: args.notes ? `${args.notes}\n` : "\n" }] },
+    text: noteDelta(args.notes ?? ""),
     attachments: [],
   };
   if (args.confirmationNumber) block.confirmationNumber = args.confirmationNumber;
@@ -484,7 +477,7 @@ export function buildRentalCarBlock(
     addedBy: { type: "user", userId },
     pickUp: args.pickUp,
     dropOff: args.dropOff,
-    text: { ops: [{ insert: args.notes ? `${args.notes}\n` : "\n" }] },
+    text: noteDelta(args.notes ?? ""),
     attachments: [],
   };
   if (args.confirmationNumber) block.confirmationNumber = args.confirmationNumber;
@@ -683,7 +676,8 @@ export function normalizeNote(note: string): string {
 /**
  * A bare `insert` inserts at offset 0 rather than replacing, so the existing
  * note has to be deleted explicitly. The document's trailing newline is kept
- * and the replacement goes in ahead of it.
+ * and the replacement goes in ahead of it. Markdown links in `note` become
+ * link-formatted runs.
  */
 export function buildNoteReplaceDelta(
   existing: QuillDelta | undefined,
@@ -692,10 +686,10 @@ export function buildNoteReplaceDelta(
   const lastInsert = existing?.ops?.at(-1)?.insert;
   const keepsTerminator = typeof lastInsert === "string" && lastInsert.endsWith("\n");
   const deleteLen = quillLength(existing) - (keepsTerminator ? 1 : 0);
-  const body = normalizeNote(note);
+  const runs = noteToDeltaInserts(normalizeNote(note));
 
   const ops: Array<Record<string, unknown>> = [];
   if (deleteLen > 0) ops.push({ delete: deleteLen });
-  ops.push({ insert: keepsTerminator ? body : `${body}\n` });
+  ops.push(...(keepsTerminator ? runs : withTrailingNewline(runs)));
   return ops;
 }

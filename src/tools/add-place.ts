@@ -15,6 +15,7 @@ import {
   submitOp,
   validateTimeInputs,
 } from "./shared.js";
+import { noteToDeltaInserts } from "./note-text.js";
 import { describeSectionAt } from "../resolvers/section.js";
 
 export const addPlaceInputSchema = {
@@ -44,7 +45,7 @@ export const addPlaceInputSchema = {
     .string()
     .optional()
     .describe(
-      "Optional inline note attached directly to this place. Use for practical context: transit directions, what to order, booking tips, time guidance. Appears on the place itself in Wanderlog (not as a separate note block).",
+      "Optional inline note attached directly to this place. Use for practical context: transit directions, what to order, booking tips, time guidance. Appears on the place itself in Wanderlog (not as a separate note block). Markdown links [label](https://…) become clickable links.",
     ),
   start_time: z
     .string()
@@ -188,7 +189,7 @@ export async function addPlace(
                 "text",
               ],
               t: "rich-text",
-              o: [{ insert: `${args.note}\n` }],
+              o: noteToDeltaInserts(args.note),
             },
           ]);
         }

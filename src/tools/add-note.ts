@@ -9,6 +9,7 @@ import {
   requireUserId,
   submitOp,
 } from "./shared.js";
+import { noteToDeltaInserts } from "./note-text.js";
 
 export const addNoteInputSchema = z
   .object({
@@ -21,7 +22,9 @@ export const addNoteInputSchema = z
     text: z
       .string()
       .min(1)
-      .describe("The note text. Plain text — can be multi-line."),
+      .describe(
+        "The note text, can be multi-line. Markdown links [label](https://…) become clickable links; other Markdown stays literal.",
+      ),
     day: z
       .string()
       .min(1)
@@ -96,7 +99,7 @@ export async function addNote(
             "text",
           ],
           t: "rich-text",
-          o: [{ insert: `${args.text}\n` }],
+          o: noteToDeltaInserts(args.text),
         },
       ];
       await submit(textOps);

@@ -39,7 +39,7 @@ export const addTransitInputSchema = {
     .regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, "must be HH:mm (00:00–23:59)")
     .describe("Arrival time (24h)."),
   confirmation_number: z.string().optional().describe("Booking/confirmation number (optional)."),
-  notes: z.string().optional().describe("Free-text notes shown on the block (optional)."),
+  notes: z.string().optional().describe("Free-text notes shown on the block (optional). Markdown links [label](https://…) become clickable links."),
 };
 
 export const addTransitDescription = `

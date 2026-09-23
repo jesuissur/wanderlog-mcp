@@ -69,7 +69,20 @@ export function resolveSectionRef(trip: TripPlan, ref: string): SectionRefResult
     const found = findPlacesToVisitSection(trip);
     return found ? { kind: "unique", match: found } : { kind: "none" };
   }
-  return resolveUntitledListRef(trip, ref) ?? resolveByHeading(findSectionsHeaded(trip, normalized));
+  return resolveUntitledListRef(trip, ref) ?? resolveHeadingRef(trip, normalized);
+}
+
+/**
+ * An exact heading wins; otherwise "2nd <heading>" picks among lists sharing
+ * that heading in trip order, so duplicates made in the Wanderlog UI stay
+ * reachable and can be renamed apart.
+ */
+function resolveHeadingRef(trip: TripPlan, normalized: string): SectionRefResult {
+  const exact = findSectionsHeaded(trip, normalized);
+  if (exact.length > 0) return resolveByHeading(exact);
+  const ordinal = parseOrdinal(normalized);
+  if (!ordinal) return { kind: "none" };
+  return resolveByHeading(pickByPosition(findSectionsHeaded(trip, ordinal.rest), ordinal.position));
 }
 
 /**
@@ -87,7 +100,7 @@ export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefR
   const lists = findUntitledLists(trip);
   if (lists.length === 0) return null;
 
-  const untitledMatches = pickUntitledLists(lists, parsed.position);
+  const untitledMatches = pickByPosition(lists, parsed.position);
   const literallyHeaded = findSectionsHeaded(trip, parsed.normalized);
   if (untitledMatches.length > 0 && literallyHeaded.length > 0) {
     return { kind: "ambiguous", candidates: [...untitledMatches, ...literallyHeaded] };
@@ -95,9 +108,10 @@ export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefR
   return resolveByHeading(untitledMatches.length > 0 ? untitledMatches : literallyHeaded);
 }
 
-function pickUntitledLists(lists: SectionMatch[], position: UntitledListRef["position"]): SectionMatch[] {
-  if (position === null) return lists;
-  const match = position === "last" ? lists.at(-1) : lists[position - 1];
+/** The match at a 1-based trip-order position, or every match when no position is given. */
+function pickByPosition(matches: SectionMatch[], position: number | "last" | null): SectionMatch[] {
+  if (position === null) return matches;
+  const match = position === "last" ? matches.at(-1) : matches[position - 1];
   return match ? [match] : [];
 }
 
@@ -153,15 +167,11 @@ export function hasUndatedSectionHeaded(
 }
 
 /**
- * Error for a section ref that matched several sections. Untitled lists are
- * disambiguated by ordinal; anything involving a real heading needs a rename
- * (`retryHint`), because no reference can tell same-named lists apart.
+ * Error for a section ref that matched several sections, naming the ordinal
+ * references that pick one by trip order. The one case no reference can split
+ * is an untitled-list ref colliding with a list literally headed like it.
  */
-export function ambiguousSectionMessage(
-  ref: string,
-  candidates: SectionMatch[],
-  retryHint: string,
-): string {
+export function ambiguousSectionMessage(ref: string, candidates: SectionMatch[]): string {
   if (parseUntitledListRef(ref) !== null) {
     const headed = candidates.filter(({ section }) => section.heading.trim() !== "");
     if (headed.length > 0) {
@@ -169,7 +179,7 @@ export function ambiguousSectionMessage(
     }
     return `"${ref}" matches ${candidates.length} untitled lists. Pick one by trip order: "1st untitled list", "2nd untitled list", or "last untitled list" (wanderlog_get_trip shows each one's label).`;
   }
-  return `Section reference "${ref}" is ambiguous: ${candidates.length} sections have that heading. ${retryHint}`;
+  return `Section reference "${ref}" is ambiguous: ${candidates.length} sections have that heading. Pick one by trip order: "1st ${ref}", "2nd ${ref}", or "last ${ref}".`;
 }
 
 /** Names a section in tool confirmations and errors with the labels wanderlog_get_trip shows. */

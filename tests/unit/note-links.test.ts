@@ -59,6 +59,15 @@ describe("Markdown links in notes", () => {
     ]);
   });
 
+  it("keeps balanced parentheses inside the URL, as in Wikipedia links", () => {
+    const wiki = "https://en.wikipedia.org/wiki/Temple_(Hue)";
+    expect(noteToDeltaInserts(`See [Temple](${wiki}) now`)).toEqual([
+      { insert: "See " },
+      { insert: "Temple", attributes: { link: wiki } },
+      { insert: " now" },
+    ]);
+  });
+
   it("leaves text without links, and non-http links, as plain text", () => {
     expect(noteToDeltaInserts("No link here")).toEqual([{ insert: "No link here" }]);
     expect(noteToDeltaInserts("[x](javascript:alert(1))")).toEqual([

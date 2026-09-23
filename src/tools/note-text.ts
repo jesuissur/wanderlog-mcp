@@ -1,7 +1,10 @@
 import type { DeltaInsert } from "../ot/rich-text.js";
 
-/** Only web links become clickable; anything else stays as literal text. */
-const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+/**
+ * Only web links become clickable; anything else stays as literal text. The
+ * URL may hold one level of balanced parentheses, as Wikipedia links do.
+ */
+const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/(?:[^\s()]|\([^\s()]*\))+)\)/g;
 
 /**
  * Quill runs for a note, with Markdown links `[label](https://…)` turned into

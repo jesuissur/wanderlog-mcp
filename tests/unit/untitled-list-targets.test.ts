@@ -4,13 +4,14 @@ import { applyOp, type Json0Op } from "../../src/ot/apply.ts";
 import { addChecklist } from "../../src/tools/add-checklist.ts";
 import { addNote } from "../../src/tools/add-note.ts";
 import { addPlace } from "../../src/tools/add-place.ts";
+import { removePlace } from "../../src/tools/remove-place.ts";
 import { customSectionsTrip } from "../fixtures/custom-sections-trip.ts";
 
 const LAST_UNTITLED_LIST_ID = 8;
 
-function makeFakeContext(): { ctx: AppContext; submittedOps: Json0Op[][] } {
+function makeFakeContext(trip = customSectionsTrip): { ctx: AppContext; submittedOps: Json0Op[][] } {
   const submittedOps: Json0Op[][] = [];
-  const entry = { snapshot: structuredClone(customSectionsTrip), version: 1, geos: [] };
+  const entry = { snapshot: structuredClone(trip), version: 1, geos: [] };
   const client = {
     isSubscribed: true,
     version: 1,
@@ -77,5 +78,18 @@ describe("block tools targeting untitled lists", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain('"2nd untitled list"');
     expect(submittedOps).toHaveLength(0);
+  });
+});
+
+describe("remove_place confirmation", () => {
+  it("names the untitled list the place was removed from", async () => {
+    const trip = structuredClone(customSectionsTrip);
+    const foodAndDrink = trip.itinerary.sections.find((s) => s.id === 6)!;
+    trip.itinerary.sections.find((s) => s.id === 4)!.blocks = [];
+    trip.itinerary.sections.find((s) => s.id === 8)!.blocks.push(...foodAndDrink.blocks.splice(0));
+    const { ctx } = makeFakeContext(trip);
+    const result = await removePlace(ctx, { trip_key: "T", place_ref: "Schwartz's Deli" });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]!.text).toContain("the 2nd untitled list");
   });
 });

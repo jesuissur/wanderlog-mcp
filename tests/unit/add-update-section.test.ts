@@ -9,6 +9,7 @@ import {
 import { addSection } from "../../src/tools/add-section.ts";
 import { deleteSection } from "../../src/tools/delete-section.ts";
 import { updateSection } from "../../src/tools/update-section.ts";
+import { describeSectionAt } from "../../src/resolvers/section.ts";
 import type { Section, TripPlan } from "../../src/types.ts";
 import { checklistTrip } from "../fixtures/checklist-trip.ts";
 import { customSectionsTrip } from "../fixtures/custom-sections-trip.ts";
@@ -525,4 +526,29 @@ describe("section resolution hardening", () => {
       expect(submittedOps).toHaveLength(0);
     },
   );
+});
+
+describe("default list stored with an empty heading", () => {
+  const withUntitledDefault = (): TripPlan => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections = trip.itinerary.sections.filter((s) => s.id !== 2);
+    return trip;
+  };
+
+  it("is described as 'Places to visit', the label get_trip shows", () => {
+    const trip = withUntitledDefault();
+    const defaultIndex = trip.itinerary.sections.findIndex((s) => s.id === 3);
+    expect(describeSectionAt(trip, defaultIndex)).toBe('section "Places to visit"');
+  });
+
+  it.each([
+    ["rename", (ctx: AppContext) => updateSection(ctx, { trip_key: "T", section: "places", heading: "Spots" })],
+    ["delete", (ctx: AppContext) => deleteSection(ctx, { trip_key: "T", section: "places" })],
+  ])("names it as the default list when refusing to %s it", async (_action, call) => {
+    const result = await call(makeFakeContext(withUntitledDefault()).ctx);
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain("default place list");
+    expect(result.content[0]!.text).not.toContain('"normal"');
+    expect(result.content[0]!.text).not.toContain("system section");
+  });
 });

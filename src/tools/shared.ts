@@ -201,6 +201,27 @@ export function isSystemSection(section: Section): boolean {
   return SYSTEM_SECTION_TYPES.has(section.type);
 }
 
+const DAY_SECTION_ALTERNATIVE = {
+  renamed: "Use wanderlog_rename_day to change a day's heading instead.",
+  deleted: "Use wanderlog_update_trip_dates to change the trip's date range instead.",
+};
+
+/** Why the section at `index` is not custom, for rename and delete refusals. */
+export function protectedSectionReason(
+  trip: TripPlan,
+  index: number,
+  action: keyof typeof DAY_SECTION_ALTERNATIVE,
+): string {
+  const section = trip.itinerary.sections[index]!;
+  if (section.mode === "dayPlan") {
+    return `Day sections cannot be ${action} here. ${DAY_SECTION_ALTERNATIVE[action]}`;
+  }
+  if (findPlacesToVisitSection(trip)?.index === index) {
+    return `"Places to visit" cannot be ${action}: it is the trip's default place list. Use wanderlog_get_trip to see your custom sections.`;
+  }
+  return `${describeSectionAt(trip, index)} is a system section and cannot be ${action}. Use wanderlog_get_trip to see your custom sections.`;
+}
+
 /** Custom undated lists that users may rename, delete, or reorder. */
 export function isCustomSection(trip: TripPlan, index: number): boolean {
   const section = trip.itinerary.sections[index];

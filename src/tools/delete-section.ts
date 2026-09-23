@@ -5,6 +5,7 @@ import type { Json0Op } from "../ot/apply.js";
 import { describeSectionAt } from "../resolvers/section.js";
 import {
   isCustomSection,
+  protectedSectionReason,
   requireUniqueSection,
   submitOp,
 } from "./shared.js";
@@ -52,12 +53,7 @@ export async function deleteSection(
         "Rename the duplicates in Wanderlog before deleting either list.",
       );
       if (!isCustomSection(trip, index)) {
-        const reason = section.mode === "dayPlan"
-          ? `Day sections cannot be deleted here. Use wanderlog_update_trip_dates to change the trip's date range instead.`
-          : `The "${section.heading || section.type}" section is a default or system section and cannot be deleted.`;
-        throw new WanderlogValidationError(
-          reason,
-        );
+        throw new WanderlogValidationError(protectedSectionReason(trip, index, "deleted"));
       }
       const sectionId = section.id;
       const ops: Json0Op[] = [{ p: ["itinerary", "sections", index], ld: section }];

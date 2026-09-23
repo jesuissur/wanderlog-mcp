@@ -174,6 +174,7 @@ function isUntitledListRefToUntitledListsOnly(ref: string, candidates: SectionMa
 export function describeSectionAt(trip: TripPlan, index: number): string {
   const section = trip.itinerary.sections[index]!;
   if (section.mode === "dayPlan" && section.date) return `day ${section.date}`;
+  if (findPlacesToVisitSection(trip)?.index === index) return `section "${PLACES_TO_VISIT}"`;
   const untitledLabel = untitledListLabels(trip).get(index);
   if (untitledLabel) return `the ${untitledLabel}`;
   return `section "${section.heading || "(untitled)"}"`;

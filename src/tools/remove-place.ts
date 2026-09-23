@@ -3,6 +3,7 @@ import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogNotFoundError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { ordinalLabel, resolvePlaceRef } from "../resolvers/place-ref.js";
+import { describeSectionAt } from "../resolvers/section.js";
 import { isPlaceBlock } from "../types.js";
 import { submitOp } from "./shared.js";
 
@@ -55,7 +56,7 @@ export async function removePlace(
             const name = isPlaceBlock(candidate.block)
               ? candidate.block.place.name
               : `${candidate.block.type} block`;
-            return `  ${index + 1}. ${name} — ${formatLocation(candidate.section)} (${ordinalLabel(index + 1)})`;
+            return `  ${index + 1}. ${name} — ${describeSectionAt(trip, candidate.sectionIndex)} (${ordinalLabel(index + 1)})`;
           })
           .join("\n");
         const firstCandidateName = isPlaceBlock(resolved.candidates[0]!.block)
@@ -74,7 +75,7 @@ export async function removePlace(
           },
         };
       }
-      const { sectionIndex, blockIndex, block, section } = resolved.match;
+      const { sectionIndex, blockIndex, block } = resolved.match;
       const blockId = block.id;
       const ops: Json0Op[] = [
         {
@@ -89,7 +90,7 @@ export async function removePlace(
       if (remains) throw new WanderlogError("Removed block is still present", "stale_target");
       return {
         removedName: isPlaceBlock(block) ? block.place.name : `${block.type} block`,
-        location: formatLocation(section),
+        location: describeSectionAt(trip, sectionIndex),
         tripTitle: trip.title,
       };
     });
@@ -103,17 +104,4 @@ export async function removePlace(
         : `Unexpected error: ${(err as Error).message}`;
     return { content: [{ type: "text", text: msg }], isError: true };
   }
-}
-
-function formatLocation(section: {
-  heading?: string;
-  type?: string;
-  mode?: string;
-  date?: string | null;
-}): string {
-  if (section.mode === "dayPlan" && section.date) {
-    return `day ${section.date}`;
-  }
-  if (section.heading) return `"${section.heading}"`;
-  return `"${section.type ?? "section"}"`;
 }

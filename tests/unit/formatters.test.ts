@@ -189,4 +189,18 @@ describe("custom section visibility", () => {
     const out = formatTrip(customSectionsTrip, "concise");
     expect(out.split("\n")[0]).toContain("· 1 places");
   });
+
+  it("counts places without a place_id separately instead of collapsing them into one", () => {
+    const trip = structuredClone(customSectionsTrip);
+    trip.itinerary.sections.find((s) => s.id === 7)!.blocks.push(
+      { id: 71001, type: "place", place: { name: "Pin A", place_id: "" } },
+      { id: 71002, type: "place", place: { name: "Pin B", place_id: "" } },
+    );
+    expect(formatTrip(trip, "concise").split("\n")[0]).toContain("· 3 places");
+  });
+
+  it("keeps empty sections that are not place lists hidden", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out).not.toContain("Notes");
+  });
 });

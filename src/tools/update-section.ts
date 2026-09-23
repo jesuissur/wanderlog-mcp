@@ -7,6 +7,7 @@ import {
   hasUndatedSectionHeaded,
   isReservedSectionHeading,
   reservedSectionHeadingMessage,
+  untitledListRenumberNote,
 } from "../resolvers/section.js";
 import {
   isCustomSection,
@@ -96,12 +97,16 @@ export async function updateSection(
         },
       ];
       await submit(ops);
-      return { oldLabel: describeSectionAt(trip, index), tripTitle: trip.title };
+      return {
+        oldLabel: describeSectionAt(trip, index),
+        renumberNote: untitledListRenumberNote(trip, index),
+        tripTitle: trip.title,
+      };
     });
     if ("response" in result && result.response) return result.response;
 
     const newLabel = newHeading || "(untitled)";
-    const text = `Renamed ${result.oldLabel} → "${newLabel}" in "${result.tripTitle}".`;
+    const text = `Renamed ${result.oldLabel} → "${newLabel}" in "${result.tripTitle}".${result.renumberNote}`;
     return { content: [{ type: "text", text }] };
   } catch (err) {
     const msg =

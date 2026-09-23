@@ -174,14 +174,14 @@ function formatTripHeader(trip: TripPlan, format: ResponseFormat): string {
 
 /**
  * Counted from the blocks because the server's `placeCount` lags edits and
- * disagrees with the itinerary on live trips. A place both scheduled on a day
- * and saved to a list counts once.
+ * disagrees with the itinerary on live trips. Each place_id counts once
+ * wherever it appears; a pin without one counts on its own.
  */
 function countDistinctPlaces(trip: TripPlan): number {
-  const placeIds = trip.itinerary.sections.flatMap((section) =>
-    section.blocks.filter(isPlaceBlock).map((block) => block.place.place_id),
+  const placeKeys = trip.itinerary.sections.flatMap((section) =>
+    section.blocks.filter(isPlaceBlock).map((block) => block.place.place_id || `block:${block.id}`),
   );
-  return new Set(placeIds).size;
+  return new Set(placeKeys).size;
 }
 
 function formatDay(

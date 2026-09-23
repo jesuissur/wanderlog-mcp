@@ -552,3 +552,26 @@ describe("default list stored with an empty heading", () => {
     expect(result.content[0]!.text).not.toContain("system section");
   });
 });
+
+describe("untitled list renumbering warning", () => {
+  it.each([
+    ["delete", (ctx: AppContext) => deleteSection(ctx, { trip_key: "T", section: "1st untitled list" })],
+    [
+      "rename",
+      (ctx: AppContext) =>
+        updateSection(ctx, { trip_key: "T", section: "1st untitled list", heading: "Rainy day" }),
+    ],
+  ])("warns that untitled lists renumber after a %s of one", async (_action, call) => {
+    const result = await call(makeFakeContext(customSectionsTrip).ctx);
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]!.text).toContain("renumbered");
+  });
+
+  it("does not warn when the changed list has a heading", async () => {
+    const result = await deleteSection(makeFakeContext(customSectionsTrip).ctx, {
+      trip_key: "T",
+      section: "Excursions",
+    });
+    expect(result.content[0]!.text).not.toContain("renumbered");
+  });
+});

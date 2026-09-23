@@ -180,6 +180,15 @@ export function describeSectionAt(trip: TripPlan, index: number): string {
   return `section "${section.heading || "(untitled)"}"`;
 }
 
+/**
+ * Ordinal references are recomputed from each call's snapshot, so deleting or
+ * renaming one untitled list shifts the ordinals of the ones after it.
+ */
+export function untitledListRenumberNote(trip: TripPlan, index: number): string {
+  if (!untitledListLabels(trip).has(index)) return "";
+  return " Untitled lists are renumbered after this change; call wanderlog_get_trip before targeting another one.";
+}
+
 /** Maps each untitled list's section index to the reference the section tools accept. */
 export function untitledListLabels(trip: TripPlan): Map<number, string> {
   const lists = findUntitledLists(trip);

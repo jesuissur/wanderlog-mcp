@@ -35,11 +35,13 @@ export function isPlaceList(section: Section): boolean {
  */
 export function findUntitledLists(trip: TripPlan): SectionMatch[] {
   const defaultIndex = findPlacesToVisitSection(trip)?.index;
-  return trip.itinerary.sections.flatMap((section, index) =>
-    index !== defaultIndex && isPlaceList(section) && section.heading.trim() === ""
-      ? [{ index, section }]
-      : [],
-  );
+  return trip.itinerary.sections
+    .map((section, index) => ({ index, section }))
+    .filter(({ index, section }) => index !== defaultIndex && isUntitledPlaceList(section));
+}
+
+function isUntitledPlaceList(section: Section): boolean {
+  return isPlaceList(section) && section.heading.trim() === "";
 }
 
 /**

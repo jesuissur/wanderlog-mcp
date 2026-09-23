@@ -21,6 +21,8 @@ import type {
 } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 
+export { findPlacesToVisitSection, type SectionMatch, type SectionRefResult };
+
 /**
  * Per-trip mutex — serializes submits against the same trip so concurrent
  * callers can't race each other on the ShareDB version vector. Without this,
@@ -177,8 +179,6 @@ export function findSectionByRef(
   const resolved = resolveSectionRef(trip, ref);
   return resolved.kind === "unique" ? resolved.match : null;
 }
-
-export { findPlacesToVisitSection, type SectionMatch, type SectionRefResult };
 
 /**
  * Resolve a section heading without silently picking the first duplicate.

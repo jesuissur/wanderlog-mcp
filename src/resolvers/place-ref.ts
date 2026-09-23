@@ -75,7 +75,7 @@ export function parseOrdinal(ref: string): ParsedOrdinal | null {
   return null;
 }
 
-/** Inverse of `parseOrdinal` for numeric suffixes: 1 → "1st", 2 → "2nd", 11 → "11th". */
+/** Formats n as "1st", "2nd", "11th", "21st". */
 export function ordinalLabel(n: number): string {
   const suffix = ["th", "st", "nd", "rd"];
   const v = n % 100;

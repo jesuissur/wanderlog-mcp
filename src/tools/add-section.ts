@@ -23,7 +23,7 @@ export const addSectionInputSchema = {
     .string()
     .optional()
     .describe(
-      "Heading for the new section (e.g. 'Food & Drink', 'Must-See Spots'). Omit for an untitled section.",
+      "Heading for the new section (e.g. 'Food & Drink', 'Must-See Spots'). Must be unique among undated sections. Every trip already has an untitled list, so omitting the heading is rejected as a duplicate.",
     ),
   after_section: z
     .string()

@@ -69,9 +69,10 @@ day filters and ordinal prefixes. Choose exactly one destination:
 
 Positions count all displayed blocks, including notes and checklists — but notes and checklists
 cannot be used as before/after targets, which resolve only to place or reservation blocks.
-To move a place to another list or day, use wanderlog_move_place; do not emulate it by removing
-and re-adding the block, which discards its ID, notes, times, and booking details. If a reference is ambiguous, nothing is
-changed and the tool returns candidates for a more specific retry.
+Blocks stay in their current section. To move a place to another list or day, use
+wanderlog_move_place; reservations cannot change section. Do not emulate a move by removing and
+re-adding the block, which discards its ID, notes, times, and booking details. If a reference is
+ambiguous, nothing is changed and the tool returns candidates for a more specific retry.
 `.trim();
 
 type Args = z.infer<typeof moveBlockInputSchema>;
@@ -157,7 +158,7 @@ function buildMove(
     if (target.sectionIndex !== source.sectionIndex) {
       throw new WanderlogValidationError(
         `Cannot move ${blockName(source.block)} ${relation} ${blockName(target.block)} because they are in different sections.`,
-        "Choose a target in the same day or section, or use wanderlog_move_place to move a place to another list or day.",
+        "Choose a target in the same day or section. Places can change section with wanderlog_move_place; reservations cannot.",
       );
     }
     if (target.block.id === source.block.id) {

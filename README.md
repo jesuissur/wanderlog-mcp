@@ -134,7 +134,11 @@ or duplicate targets return errors without submitting a mutation.
 
 Untitled lists have no heading to match, so they are referenced by trip order: `"untitled list"`
 when there is only one, otherwise `"1st untitled list"`, `"2nd untitled list"`, `"last untitled list"`.
-`wanderlog_get_trip` labels each one with the reference to use.
+`wanderlog_get_trip` labels each one with the reference to use (the surrounding parentheses are
+optional). Ordinals are recomputed on every call, so deleting or renaming one untitled list
+renumbers the ones after it; re-read the trip before targeting another. These references, plus
+`"places"` and `"places to visit"`, are reserved and can't be used as list headings. Every trip
+already has an untitled list, so new lists and renames need a non-empty heading.
 
 ### Moving places between lists and days
 

@@ -170,7 +170,7 @@ function isUntitledListRefToUntitledListsOnly(ref: string, candidates: SectionMa
   );
 }
 
-/** Names a section in tool confirmations with the same labels wanderlog_get_trip shows. */
+/** Names a section in tool confirmations and errors with the labels wanderlog_get_trip shows. */
 export function describeSectionAt(trip: TripPlan, index: number): string {
   const section = trip.itinerary.sections[index]!;
   if (section.mode === "dayPlan" && section.date) return `day ${section.date}`;

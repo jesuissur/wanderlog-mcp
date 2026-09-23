@@ -72,8 +72,8 @@ export function formatTrip(
 
 /**
  * Headings for place lists whose stored heading can't be passed back to the
- * section tools: the default list (sometimes stored untitled) and untitled
- * custom lists, labelled with the ordinal reference the tools resolve.
+ * section tools: the default list, whose heading may be empty, and untitled
+ * lists, labelled with the reference the tools resolve.
  */
 function placeListHeadings(trip: TripPlan): Map<number, string> {
   const headings = new Map<number, string>();

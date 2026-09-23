@@ -30,7 +30,7 @@ export const updateSectionInputSchema = {
   heading: z
     .string()
     .describe(
-      'New heading for the section. Pass "" (empty string) to clear it back to an untitled section.',
+      "New heading for the section. Must be unique among undated sections, so an empty heading is rejected on any trip that already has an untitled list (every new trip does).",
     ),
 };
 
@@ -38,8 +38,7 @@ export const updateSectionDescription = `
 Renames the heading of a custom section in a Wanderlog trip.
 
 Identify the section by its current heading. Use wanderlog_get_trip to see all sections and
-their current headings if you are unsure. Pass an empty string for "heading" to clear the
-section title.
+their current headings if you are unsure.
 
 Returns a confirmation showing the old and new heading.
 The current heading must identify exactly one section and the new heading must not duplicate

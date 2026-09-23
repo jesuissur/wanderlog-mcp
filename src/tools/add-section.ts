@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
-import { untitledListAmbiguityMessage } from "../resolvers/section.js";
+import { ambiguousSectionMessage } from "../resolvers/section.js";
 import {
   buildSectionObject,
   resolveSectionRef,
@@ -82,8 +82,11 @@ export async function addSection(
         }
         if (resolved.kind === "ambiguous") {
           throw new WanderlogValidationError(
-            untitledListAmbiguityMessage(args.after_section, resolved.candidates.length) ??
-              `Section reference "${args.after_section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before choosing an insertion point.`,
+            ambiguousSectionMessage(
+              args.after_section,
+              resolved.candidates.length,
+              "Rename the duplicates in Wanderlog before choosing an insertion point.",
+            ),
           );
         }
         const found = resolved.match;

@@ -67,10 +67,15 @@ export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefR
   return match ? { kind: "unique", match } : { kind: "none" };
 }
 
-/** Retry guidance for an ambiguous untitled-list ref, or null for any other ref. */
-export function untitledListAmbiguityMessage(ref: string, count: number): string | null {
-  if (ref.trim().toLowerCase() !== UNTITLED_LIST) return null;
-  return `"${ref}" matches ${count} untitled lists. Pick one by trip order: "1st untitled list", "2nd untitled list", or "last untitled list" (wanderlog_get_trip shows each one's label).`;
+/**
+ * Error for a section ref that matched several sections. Duplicate headings
+ * need a rename (`retryHint`); untitled lists are disambiguated by ordinal.
+ */
+export function ambiguousSectionMessage(ref: string, count: number, retryHint: string): string {
+  if (ref.trim().toLowerCase() === UNTITLED_LIST) {
+    return `"${ref}" matches ${count} untitled lists. Pick one by trip order: "1st untitled list", "2nd untitled list", or "last untitled list" (wanderlog_get_trip shows each one's label).`;
+  }
+  return `Section reference "${ref}" is ambiguous: ${count} sections have that heading. ${retryHint}`;
 }
 
 /** Maps each untitled list's section index to the reference the section tools accept. */

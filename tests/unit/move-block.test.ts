@@ -383,6 +383,7 @@ describe("moveBlock reference and safety errors", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]!.text).toContain("different sections");
+    expect(result.content[0]!.text).toContain("wanderlog_move_place");
     expect(fake.submittedOps).toHaveLength(0);
   });
 

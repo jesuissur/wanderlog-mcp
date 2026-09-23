@@ -25,7 +25,7 @@ export const movePlaceInputSchema = z.object({
     .min(1)
     .optional()
     .describe(
-      "Destination undated list heading, such as 'Food & Drink' or 'Places to visit'. Provide exactly one of target_section and target_day.",
+      "Destination undated list heading, such as 'Food & Drink' or 'Places to visit'. Provide exactly one of target_section and target_day. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
   target_day: z
     .string()

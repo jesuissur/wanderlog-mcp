@@ -1,6 +1,7 @@
 import { WanderlogNotFoundError, WanderlogValidationError } from "../errors.js";
 import { resolveDay } from "../resolvers/day.js";
 import { resolvePlaceRef, type PlaceRefMatch } from "../resolvers/place-ref.js";
+import { ambiguousSectionMessage } from "../resolvers/section.js";
 import type { PlaceBlock, Section, TripPlan } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 import {
@@ -42,7 +43,11 @@ export function resolveOrganizationTarget(
   }
   if (resolved.kind === "ambiguous") {
     throw new WanderlogValidationError(
-      `Section reference "${ref}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicate lists before retrying.`,
+      ambiguousSectionMessage(
+        ref,
+        resolved.candidates.length,
+        "Rename the duplicate lists before retrying.",
+      ),
     );
   }
   if (resolved.match.section.mode === "dayPlan") {

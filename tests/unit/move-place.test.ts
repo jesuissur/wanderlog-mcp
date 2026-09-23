@@ -4,6 +4,7 @@ import { applyOp, type Json0Op } from "../../src/ot/apply.ts";
 import { movePlace } from "../../src/tools/move-place.ts";
 import { isPlaceBlock, type TripPlan } from "../../src/types.ts";
 import { checklistTrip } from "../fixtures/checklist-trip.ts";
+import { customSectionsTrip } from "../fixtures/custom-sections-trip.ts";
 
 function makeTrip(): TripPlan {
   const trip = structuredClone(checklistTrip);
@@ -163,5 +164,31 @@ describe("movePlace", () => {
     expect(result.content[0]!.text).toContain("API unavailable");
     expect(fake.snapshot()).toEqual(before);
     expect(fake.invalidations()).toBe(1);
+  });
+});
+
+describe("movePlace into untitled lists", () => {
+  it("moves a place into an untitled list referenced by ordinal", async () => {
+    const { ctx, snapshot } = makeFakeContext(structuredClone(customSectionsTrip));
+    const result = await movePlace(ctx, {
+      trip_key: "T",
+      place_ref: "Schwartz's Deli on day 1",
+      target_section: "2nd untitled list",
+    });
+    expect(result.isError).toBeUndefined();
+    const lastUntitled = snapshot().itinerary.sections.find((s) => s.id === 8)!;
+    expect(lastUntitled.blocks.map((b) => b.id)).toEqual([70002]);
+  });
+
+  it("suggests ordinal references when the untitled target is ambiguous", async () => {
+    const { ctx, submittedOps } = makeFakeContext(structuredClone(customSectionsTrip));
+    const result = await movePlace(ctx, {
+      trip_key: "T",
+      place_ref: "Schwartz's Deli on day 1",
+      target_section: "untitled list",
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain('"2nd untitled list"');
+    expect(submittedOps).toHaveLength(0);
   });
 });

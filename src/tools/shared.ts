@@ -3,6 +3,7 @@ import type { CacheEntry } from "../cache/trip-cache.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
+import { findPlacesToVisitSection, type SectionMatch } from "../resolvers/section.js";
 import type {
   Block,
   ChecklistItem,
@@ -171,7 +172,7 @@ export function findSectionByRef(
   return resolved.kind === "unique" ? resolved.match : null;
 }
 
-export type SectionMatch = { index: number; section: Section };
+export { findPlacesToVisitSection, type SectionMatch };
 
 export type SectionRefResult =
   | { kind: "unique"; match: SectionMatch }
@@ -311,27 +312,6 @@ export function buildPlaceBlock(
   if (extras.startTime) base.startTime = extras.startTime;
   if (extras.endTime) base.endTime = extras.endTime;
   return base as unknown as Block;
-}
-
-/**
- * Finds the "Places to visit" section (the default normal+placeList section
- * at the top of every trip). Returns its index in trip.itinerary.sections.
- */
-export function findPlacesToVisitSection(trip: TripPlan): {
-  index: number;
-  section: Section;
-} | null {
-  for (let i = 0; i < trip.itinerary.sections.length; i++) {
-    const s = trip.itinerary.sections[i]!;
-    if (
-      s.type === "normal" &&
-      s.mode === "placeList" &&
-      (s.heading === "Places to visit" || s.heading === "")
-    ) {
-      return { index: i, section: s };
-    }
-  }
-  return null;
 }
 
 /** Finds the first hotels-type section in the trip. */

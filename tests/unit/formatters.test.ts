@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatBlockLine, formatTrip, formatTripList } from "../../src/formatters/trip-summary.ts";
-import type { Block, TripPlanSummary } from "../../src/types.ts";
+import type { Block, TripPlan, TripPlanSummary } from "../../src/types.ts";
+import { customSectionsTrip } from "../fixtures/custom-sections-trip.ts";
 import { queenstownTrip } from "../fixtures/queenstown-trip.ts";
 import { resolveDay } from "../../src/resolvers/day.ts";
 
@@ -139,5 +140,53 @@ describe("transit block formatting", () => {
     expect(line).toContain("Europcar CUN");
     expect(line).toContain("Europcar PDC");
     expect(line).toContain("R9");
+  });
+});
+
+describe("custom section visibility", () => {
+  const withoutUntitledExtras = (): TripPlan => {
+    const trip = structuredClone(customSectionsTrip);
+    trip.itinerary.sections = trip.itinerary.sections.filter((s) => s.id !== 8);
+    return trip;
+  };
+
+  it("lists an empty custom list so the agent can target it", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out).toContain("📌 Excursions\n  (empty)");
+  });
+
+  it("lists the empty default place list", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out).toContain("📌 Places to visit\n  (empty)");
+  });
+
+  it("labels several untitled lists with the ordinal references the section tools accept", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out).toContain("📌 (1st untitled list)");
+    expect(out).toContain("📌 (2nd untitled list)");
+  });
+
+  it("labels a lone untitled list without an ordinal", () => {
+    const out = formatTrip(withoutUntitledExtras(), "concise");
+    expect(out).toContain("📌 (untitled list)");
+    expect(out).not.toContain("1st untitled list");
+  });
+
+  it("never labels an untitled list as 'Places', which the tools alias to the default list", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out).not.toMatch(/📌 Places$/m);
+  });
+
+  it("keeps an untitled default place list labelled as the default, not as an untitled list", () => {
+    const trip = withoutUntitledExtras();
+    trip.itinerary.sections = trip.itinerary.sections.filter((s) => s.id !== 2);
+    const out = formatTrip(trip, "concise");
+    expect(out).toContain("📌 Places to visit\n  (empty)");
+    expect(out).not.toContain("untitled list");
+  });
+
+  it("counts distinct places from the blocks instead of the stale server counter", () => {
+    const out = formatTrip(customSectionsTrip, "concise");
+    expect(out.split("\n")[0]).toContain("· 1 places");
   });
 });

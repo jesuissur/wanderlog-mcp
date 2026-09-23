@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogNotFoundError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
-import { resolvePlaceRef } from "../resolvers/place-ref.js";
+import { ordinalLabel, resolvePlaceRef } from "../resolvers/place-ref.js";
 import { isPlaceBlock } from "../types.js";
 import { submitOp } from "./shared.js";
 
@@ -116,10 +116,4 @@ function formatLocation(section: {
   }
   if (section.heading) return `"${section.heading}"`;
   return `"${section.type ?? "section"}"`;
-}
-
-function ordinalLabel(n: number): string {
-  const suffix = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${suffix[(v - 20) % 10] ?? suffix[v] ?? suffix[0]}`;
 }

@@ -76,8 +76,9 @@ export function resolveSectionRef(trip: TripPlan, ref: string): SectionRefResult
  * Resolves "untitled list", "2nd untitled list", "last untitled list", with or
  * without the parentheses wanderlog_get_trip prints around them. Returns null
  * when the ref is not an untitled-list ref or the trip has no untitled lists,
- * leaving it to heading resolution. A list literally headed like the ref makes
- * the result ambiguous, since picking either one could hit the wrong list.
+ * leaving it to heading resolution. When the ref matches both an untitled list
+ * and a list literally headed like it, the result is ambiguous, since picking
+ * either one could hit the wrong list.
  */
 export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefResult | null {
   const parsed = parseUntitledListRef(ref);
@@ -86,14 +87,18 @@ export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefR
   const lists = findUntitledLists(trip);
   if (lists.length === 0) return null;
 
+  const untitledMatches = pickUntitledLists(lists, parsed.position);
   const literallyHeaded = findSectionsHeaded(trip, parsed.normalized);
-  if (literallyHeaded.length > 0) {
-    return { kind: "ambiguous", candidates: [...lists, ...literallyHeaded] };
+  if (untitledMatches.length > 0 && literallyHeaded.length > 0) {
+    return { kind: "ambiguous", candidates: [...untitledMatches, ...literallyHeaded] };
   }
-  if (parsed.position === null) return resolveByHeading(lists);
+  return resolveByHeading(untitledMatches.length > 0 ? untitledMatches : literallyHeaded);
+}
 
-  const match = parsed.position === "last" ? lists.at(-1) : lists[parsed.position - 1];
-  return match ? { kind: "unique", match } : { kind: "none" };
+function pickUntitledLists(lists: SectionMatch[], position: UntitledListRef["position"]): SectionMatch[] {
+  if (position === null) return lists;
+  const match = position === "last" ? lists.at(-1) : lists[position - 1];
+  return match ? [match] : [];
 }
 
 function parseUntitledListRef(ref: string): UntitledListRef | null {
@@ -157,17 +162,14 @@ export function ambiguousSectionMessage(
   candidates: SectionMatch[],
   retryHint: string,
 ): string {
-  if (isUntitledListRefToUntitledListsOnly(ref, candidates)) {
+  if (parseUntitledListRef(ref) !== null) {
+    const headed = candidates.filter(({ section }) => section.heading.trim() !== "");
+    if (headed.length > 0) {
+      return `"${ref}" matches both an untitled list and a list headed "${headed[0]!.section.heading}". Rename that list in Wanderlog before retrying.`;
+    }
     return `"${ref}" matches ${candidates.length} untitled lists. Pick one by trip order: "1st untitled list", "2nd untitled list", or "last untitled list" (wanderlog_get_trip shows each one's label).`;
   }
   return `Section reference "${ref}" is ambiguous: ${candidates.length} sections have that heading. ${retryHint}`;
-}
-
-function isUntitledListRefToUntitledListsOnly(ref: string, candidates: SectionMatch[]): boolean {
-  return (
-    parseUntitledListRef(ref) !== null &&
-    candidates.every(({ section }) => section.heading.trim() === "")
-  );
 }
 
 /** Names a section in tool confirmations and errors with the labels wanderlog_get_trip shows. */

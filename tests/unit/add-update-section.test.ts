@@ -500,6 +500,26 @@ describe("section resolution hardening", () => {
     expect(resolveSectionRef(trip, "untitled list").kind).toBe("ambiguous");
   });
 
+  it("resolves a literal heading when the ordinal points past the last untitled list", () => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections.find((s) => s.id === 7)!.heading = "3rd untitled list";
+    expect(resolveSectionRef(trip, "3rd untitled list")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 7 } },
+    });
+  });
+
+  it("explains a heading collision instead of reporting duplicate headings", async () => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections.find((s) => s.id === 7)!.heading = "2nd untitled list";
+    const { ctx, submittedOps } = makeFakeContext(trip);
+    const result = await deleteSection(ctx, { trip_key: "T", section: "2nd untitled list" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain('a list headed "2nd untitled list"');
+    expect(result.content[0]!.text).not.toContain("sections have that heading");
+    expect(submittedOps).toHaveLength(0);
+  });
+
   it("prefers the list headed 'Places to visit' over an untitled list placed before it", () => {
     const trip = fresh(customSectionsTrip);
     const [notes, placesToVisit, untitled, ...rest] = trip.itinerary.sections;

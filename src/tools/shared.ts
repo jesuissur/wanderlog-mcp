@@ -5,7 +5,7 @@ import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
 import {
   findPlacesToVisitSection,
-  resolveUntitledListRef,
+  resolveSectionRef,
   type SectionMatch,
   type SectionRefResult,
 } from "../resolvers/section.js";
@@ -21,7 +21,7 @@ import type {
 } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 
-export { findPlacesToVisitSection, type SectionMatch, type SectionRefResult };
+export { findPlacesToVisitSection, resolveSectionRef, type SectionMatch, type SectionRefResult };
 
 /**
  * Per-trip mutex — serializes submits against the same trip so concurrent
@@ -178,33 +178,6 @@ export function findSectionByRef(
 ): { index: number; section: Section } | null {
   const resolved = resolveSectionRef(trip, ref);
   return resolved.kind === "unique" ? resolved.match : null;
-}
-
-/**
- * Resolve a section heading without silently picking the first duplicate.
- * The default list aliases remain unambiguous because they resolve by section
- * identity instead of heading. All other headings return every match so
- * mutation tools can fail safely when a trip contains duplicate list names.
- */
-export function resolveSectionRef(trip: TripPlan, ref: string): SectionRefResult {
-  const normalized = ref.trim().toLowerCase();
-  if (normalized === "places to visit" || normalized === "places") {
-    const found = findPlacesToVisitSection(trip);
-    return found ? { kind: "unique", match: found } : { kind: "none" };
-  }
-  const untitled = resolveUntitledListRef(trip, normalized);
-  if (untitled) return untitled;
-
-  const candidates: SectionMatch[] = [];
-  for (let i = 0; i < trip.itinerary.sections.length; i++) {
-    const section = trip.itinerary.sections[i]!;
-    if (section.heading.trim().toLowerCase() === normalized) {
-      candidates.push({ index: i, section });
-    }
-  }
-  if (candidates.length === 0) return { kind: "none" };
-  if (candidates.length === 1) return { kind: "unique", match: candidates[0]! };
-  return { kind: "ambiguous", candidates };
 }
 
 const SYSTEM_SECTION_TYPES = new Set([

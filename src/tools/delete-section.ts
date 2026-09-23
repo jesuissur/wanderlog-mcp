@@ -56,7 +56,7 @@ export async function deleteSection(
         throw new WanderlogValidationError(
           ambiguousSectionMessage(
             args.section,
-            resolved.candidates.length,
+            resolved.candidates,
             "Rename the duplicates in Wanderlog before deleting either list.",
           ),
         );

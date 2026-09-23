@@ -44,7 +44,7 @@ export function resolveOrganizationTarget(
     throw new WanderlogValidationError(
       ambiguousSectionMessage(
         ref,
-        resolved.candidates.length,
+        resolved.candidates,
         "Rename the duplicate lists before retrying.",
       ),
     );

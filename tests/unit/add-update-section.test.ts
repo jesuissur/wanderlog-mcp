@@ -479,3 +479,44 @@ describe("untitled list references", () => {
     expect(deleted.content[0]!.text).toContain("Deleted the 1st untitled list from");
   });
 });
+
+describe("section resolution hardening", () => {
+  it("accepts an untitled-list label copied from get_trip with its parentheses", () => {
+    const resolved = resolveSectionRef(fresh(customSectionsTrip), "(2nd untitled list)");
+    expect(resolved).toMatchObject({ kind: "unique", match: { section: { id: 8 } } });
+  });
+
+  it("treats a list literally headed like an untitled-list ref as ambiguous instead of shadowing it", () => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections = trip.itinerary.sections.filter((s) => s.id !== 8);
+    trip.itinerary.sections.find((s) => s.id === 7)!.heading = "Untitled list";
+    expect(resolveSectionRef(trip, "untitled list").kind).toBe("ambiguous");
+  });
+
+  it("prefers the list headed 'Places to visit' over an untitled list placed before it", () => {
+    const trip = fresh(customSectionsTrip);
+    const [notes, placesToVisit, untitled, ...rest] = trip.itinerary.sections;
+    trip.itinerary.sections = [notes!, untitled!, placesToVisit!, ...rest];
+    expect(resolveSectionRef(trip, "places to visit")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 2 } },
+    });
+    expect(resolveSectionRef(trip, "1st untitled list")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 3 } },
+    });
+  });
+
+  it.each(["Untitled list", "2nd untitled list", "last Untitled List"])(
+    "refuses to create or rename a list to the reserved heading %s",
+    async (heading) => {
+      const { ctx, submittedOps } = makeFakeContext(customSectionsTrip);
+      const added = await addSection(ctx, { trip_key: "T", heading });
+      const renamed = await updateSection(ctx, { trip_key: "T", section: "Excursions", heading });
+      expect(added.isError).toBe(true);
+      expect(renamed.isError).toBe(true);
+      expect(added.content[0]!.text).toContain("reserved");
+      expect(submittedOps).toHaveLength(0);
+    },
+  );
+});

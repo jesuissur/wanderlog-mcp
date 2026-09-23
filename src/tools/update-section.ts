@@ -2,7 +2,13 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
-import { ambiguousSectionMessage, describeSectionAt } from "../resolvers/section.js";
+import {
+  ambiguousSectionMessage,
+  describeSectionAt,
+  hasUndatedSectionHeaded,
+  isReservedSectionHeading,
+  reservedSectionHeadingMessage,
+} from "../resolvers/section.js";
 import {
   isCustomSection,
   resolveSectionRef,
@@ -63,7 +69,7 @@ export async function updateSection(
         throw new WanderlogValidationError(
           ambiguousSectionMessage(
             args.section,
-            resolved.candidates.length,
+            resolved.candidates,
             "Rename the duplicates in Wanderlog before retrying.",
           ),
         );
@@ -93,17 +99,10 @@ export async function updateSection(
           },
         };
       }
-      const normalizedHeading = newHeading.trim().toLowerCase();
-      const duplicate =
-        normalizedHeading === "places" ||
-        normalizedHeading === "places to visit" ||
-        trip.itinerary.sections.some(
-          (candidate) =>
-            candidate.id !== section.id &&
-            candidate.mode !== "dayPlan" &&
-            candidate.heading.trim().toLowerCase() === normalizedHeading,
-        );
-      if (duplicate) {
+      if (isReservedSectionHeading(newHeading)) {
+        throw new WanderlogValidationError(reservedSectionHeadingMessage(newHeading));
+      }
+      if (hasUndatedSectionHeaded(trip, newHeading, section.id)) {
         throw new WanderlogValidationError(
           `A different section named "${newHeading || "(untitled)"}" already exists. Choose a unique heading so future mutations can target it safely.`,
         );

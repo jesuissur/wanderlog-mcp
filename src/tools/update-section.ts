@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
+import { untitledListAmbiguityMessage } from "../resolvers/section.js";
 import {
   isCustomSection,
   resolveSectionRef,
@@ -17,7 +18,7 @@ export const updateSectionInputSchema = {
     .string()
     .min(1)
     .describe(
-      "The section to update, identified by its current heading (e.g. 'Food & Drink', 'Places to visit'). Use wanderlog_get_trip to see available sections.",
+      "The section to update, identified by its current heading (e.g. 'Food & Drink', 'Places to visit'). Use wanderlog_get_trip to see available sections. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
   heading: z
     .string()
@@ -60,7 +61,8 @@ export async function updateSection(
       }
       if (resolved.kind === "ambiguous") {
         throw new WanderlogValidationError(
-          `Section reference "${args.section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before retrying.`,
+          untitledListAmbiguityMessage(args.section, resolved.candidates.length) ??
+            `Section reference "${args.section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before retrying.`,
         );
       }
       const found = resolved.match;

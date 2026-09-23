@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
+import { untitledListAmbiguityMessage } from "../resolvers/section.js";
 import {
   isCustomSection,
   resolveSectionRef,
@@ -17,7 +18,7 @@ export const deleteSectionInputSchema = {
     .string()
     .min(1)
     .describe(
-      "The section to delete, identified by its heading (e.g. 'Food & Drink'). Use wanderlog_get_trip to see available sections.",
+      "The section to delete, identified by its heading (e.g. 'Food & Drink'). Use wanderlog_get_trip to see available sections. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
 };
 
@@ -53,7 +54,8 @@ export async function deleteSection(
       }
       if (resolved.kind === "ambiguous") {
         throw new WanderlogValidationError(
-          `Section reference "${args.section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before deleting either list.`,
+          untitledListAmbiguityMessage(args.section, resolved.candidates.length) ??
+            `Section reference "${args.section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before deleting either list.`,
         );
       }
       const found = resolved.match;

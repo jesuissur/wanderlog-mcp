@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
+import { untitledListAmbiguityMessage } from "../resolvers/section.js";
 import {
   buildSectionObject,
   resolveSectionRef,
@@ -24,7 +25,7 @@ export const addSectionInputSchema = {
     .string()
     .optional()
     .describe(
-      "Insert the new section immediately after an existing section identified by its heading (e.g. 'Places to visit', 'Food & Drink'). Omit to append at the end of the trip.",
+      "Insert the new section immediately after an existing section identified by its heading (e.g. 'Places to visit', 'Food & Drink'). Omit to append at the end of the trip. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
 };
 
@@ -81,7 +82,8 @@ export async function addSection(
         }
         if (resolved.kind === "ambiguous") {
           throw new WanderlogValidationError(
-            `Section reference "${args.after_section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before choosing an insertion point.`,
+            untitledListAmbiguityMessage(args.after_section, resolved.candidates.length) ??
+              `Section reference "${args.after_section}" is ambiguous: ${resolved.candidates.length} sections have that heading. Rename the duplicates in Wanderlog before choosing an insertion point.`,
           );
         }
         const found = resolved.match;

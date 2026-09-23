@@ -37,7 +37,7 @@ export const addPlaceInputSchema = {
     .string()
     .optional()
     .describe(
-      "Optional custom section to also add the place to, identified by its heading (e.g. 'Food & Drink', 'Must-See Spots'). Can be combined with 'day' to insert the place into both locations in a single call.",
+      "Optional custom section to also add the place to, identified by its heading (e.g. 'Food & Drink', 'Must-See Spots'). Can be combined with 'day' to insert the place into both locations in a single call. Untitled lists are referenced as 'untitled list', or '2nd untitled list' when there are several, exactly as wanderlog_get_trip labels them.",
     ),
   note: z
     .string()

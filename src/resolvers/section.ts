@@ -1,9 +1,14 @@
 import type { Section, TripPlan } from "../types.js";
-import { ordinalLabel } from "./place-ref.js";
+import { ordinalLabel, parseOrdinal } from "./place-ref.js";
 
 const UNTITLED_LIST = "untitled list";
 
 export type SectionMatch = { index: number; section: Section };
+
+export type SectionRefResult =
+  | { kind: "unique"; match: SectionMatch }
+  | { kind: "ambiguous"; candidates: SectionMatch[] }
+  | { kind: "none" };
 
 /**
  * Finds the "Places to visit" section (the default normal+placeList section
@@ -35,6 +40,35 @@ export function findUntitledLists(trip: TripPlan): SectionMatch[] {
       ? [{ index, section }]
       : [],
   );
+}
+
+/**
+ * Resolves "untitled list", "2nd untitled list", "last untitled list".
+ * Returns null when the ref is not an untitled-list reference or the trip has
+ * no untitled lists, so a list literally titled "Untitled list" still resolves
+ * by heading.
+ */
+export function resolveUntitledListRef(trip: TripPlan, ref: string): SectionRefResult | null {
+  const normalized = ref.trim().toLowerCase();
+  const ordinal = parseOrdinal(normalized);
+  if ((ordinal ? ordinal.rest : normalized) !== UNTITLED_LIST) return null;
+
+  const lists = findUntitledLists(trip);
+  if (lists.length === 0) return null;
+
+  if (!ordinal) {
+    return lists.length === 1
+      ? { kind: "unique", match: lists[0]! }
+      : { kind: "ambiguous", candidates: lists };
+  }
+  const match = ordinal.position === "last" ? lists.at(-1) : lists[ordinal.position - 1];
+  return match ? { kind: "unique", match } : { kind: "none" };
+}
+
+/** Retry guidance for an ambiguous untitled-list ref, or null for any other ref. */
+export function untitledListAmbiguityMessage(ref: string, count: number): string | null {
+  if (ref.trim().toLowerCase() !== UNTITLED_LIST) return null;
+  return `"${ref}" matches ${count} untitled lists. Pick one by trip order: "1st untitled list", "2nd untitled list", or "last untitled list" (wanderlog_get_trip shows each one's label).`;
 }
 
 /** Maps each untitled list's section index to the reference the section tools accept. */

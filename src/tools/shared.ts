@@ -3,7 +3,12 @@ import type { CacheEntry } from "../cache/trip-cache.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
 import { resolveDay } from "../resolvers/day.js";
-import { findPlacesToVisitSection, type SectionMatch } from "../resolvers/section.js";
+import {
+  findPlacesToVisitSection,
+  resolveUntitledListRef,
+  type SectionMatch,
+  type SectionRefResult,
+} from "../resolvers/section.js";
 import type {
   Block,
   ChecklistItem,
@@ -161,8 +166,9 @@ export function buildSectionObject(heading: string): Section {
  * Resolves a natural-language section reference to its index and Section object.
  * Resolution order:
  *   1. "places to visit" / "places" → the default placeList section (via findPlacesToVisitSection)
- *   2. Case-insensitive heading match across all sections
- * Returns null when no section matches.
+ *   2. "untitled list" / "2nd untitled list" → untitled custom lists in trip order
+ *   3. Case-insensitive heading match across all sections
+ * Returns null when no section matches or the match is ambiguous.
  */
 export function findSectionByRef(
   trip: TripPlan,
@@ -172,12 +178,7 @@ export function findSectionByRef(
   return resolved.kind === "unique" ? resolved.match : null;
 }
 
-export { findPlacesToVisitSection, type SectionMatch };
-
-export type SectionRefResult =
-  | { kind: "unique"; match: SectionMatch }
-  | { kind: "ambiguous"; candidates: SectionMatch[] }
-  | { kind: "none" };
+export { findPlacesToVisitSection, type SectionMatch, type SectionRefResult };
 
 /**
  * Resolve a section heading without silently picking the first duplicate.
@@ -191,6 +192,8 @@ export function resolveSectionRef(trip: TripPlan, ref: string): SectionRefResult
     const found = findPlacesToVisitSection(trip);
     return found ? { kind: "unique", match: found } : { kind: "none" };
   }
+  const untitled = resolveUntitledListRef(trip, normalized);
+  if (untitled) return untitled;
 
   const candidates: SectionMatch[] = [];
   for (let i = 0; i < trip.itinerary.sections.length; i++) {

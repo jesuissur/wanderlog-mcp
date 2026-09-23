@@ -19,6 +19,8 @@ The agent calls the tools, interleaves places and notes for each day, adds hotel
 ## What's New (Unreleased)
 
 - Custom-list lifecycle operations now reject duplicate or ambiguous section headings instead of silently changing the first match.
+- `wanderlog_get_trip` lists every place list, including empty ones, and counts places from the itinerary instead of Wanderlog's lagging counter.
+- Untitled lists (every new Wanderlog trip has one) can be targeted as `"untitled list"`, `"2nd untitled list"`, or `"last untitled list"` by every tool that takes a section.
 - `wanderlog_search_hotels` — search Wanderlog's hotel aggregator across airbnb, expedia, google, and kayak. Returns ranked offers with per-vendor price comparison and faceted filter discovery so the LLM never has to memorise Wanderlog's internal enum values.
 - A failed startup authentication probe now gets one shared retry on the first tool call, allowing valid sessions to recover from a transient network or proxy error without restarting the server.
 
@@ -127,6 +129,10 @@ Create one with `wanderlog_add_section`, rename it with `wanderlog_update_sectio
 it with `wanderlog_delete_section`. Deleting is destructive: every block in that section is
 removed. Section headings used by these tools must be unique (matching ignores case); ambiguous
 or duplicate targets return errors without submitting a mutation.
+
+Untitled lists have no heading to match, so they are referenced by trip order: `"untitled list"`
+when there is only one, otherwise `"1st untitled list"`, `"2nd untitled list"`, `"last untitled list"`.
+`wanderlog_get_trip` labels each one with the reference to use.
 
 ## Prerequisites
 

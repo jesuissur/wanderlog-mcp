@@ -542,65 +542,9 @@ export async function searchHotels(
 ): Promise<{ content: Array<{ type: "text"; text: string }>; isError?: boolean }> {
   try {
     const norm = validateArgs(args);
-    const { geo, alternative_geos } = await resolveGeo(ctx, norm);
-    // WHY: currencyPreference is stored on the SHARED server-side Wanderlog
-    // session (POST /api/sessionStore), so setting it mutates global state for
-    // every other caller using this cookie — not just this search. Only mutate
-    // it when the caller explicitly asks for a currency; a default search must
-    // not silently change the session's currency preference. When no currency
-    // is passed, prices come back in whatever the session already uses, and we
-    // label the response from the offers' own currencyCode below.
-    if (norm.currency) {
-      await ctx.rest.setCurrencyPreference(norm.currency);
-    }
-    const body = buildSearchBody(norm, geo);
-
-    const polled = await pollSearch({
-      fetchPage: () => ctx.rest.searchLodgings(body),
-      maxRetries: POLL_MAX_RETRIES,
-      sleep: defaultSleep,
-    });
-    const offers = filterByPropertyName(polled.offers, norm.property_name);
-
-    const projected = offers.map(projectOffer);
-    const sliced = projected.slice(0, norm.limit);
-    const format = norm.response_format ?? "concise";
-    const allFacets = aggregateFacets(offers);
-    const facets =
-      format === "concise" ? trimAmenityFacets(allFacets, CONCISE_AMENITY_FACETS) : allFacets;
-    const currency =
-      norm.currency ??
-      projected[0]?.currency ??
-      ctx.config.defaultCurrency ??
-      "USD";
-
-    const offersForWire =
-      format === "concise"
-        ? sliced.map(
-            ({
-              amenities: _a,
-              hotel_class: _hc,
-              lodging_type: _lt,
-              accommodation_type: _at,
-              thumbnail: _t,
-              ...rest
-            }) => rest,
-          )
-        : sliced;
-
-    const result: HotelSearchResult = {
-      geo,
-      alternative_geos,
-      currency,
-      complete: polled.complete,
-      ...(polled.complete ? {} : { note: INCOMPLETE_NOTE }),
-      total_results: offers.length,
-      returned: sliced.length,
-      applied_filters: applied(norm),
-      available_filters: facets,
-      offers: offersForWire as HotelOffer[],
-    };
-
+    const geos = await resolveGeo(ctx, norm);
+    const search = await fetchMatchingOffers(ctx, norm, geos.geo);
+    const result = buildSearchResult(norm, { ...geos, ...search }, ctx.config.defaultCurrency);
     return {
       content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
     };
@@ -611,4 +555,81 @@ export async function searchHotels(
         : `Unexpected error: ${(err as Error).message}`;
     return { content: [{ type: "text", text: e }], isError: true };
   }
+}
+
+type NormalizedSearchArgs = ReturnType<typeof validateArgs>;
+type ResponseFormat = NonNullable<SearchHotelsArgs["response_format"]>;
+
+type CompletedSearch = {
+  geo: HotelGeo;
+  alternative_geos: HotelGeo[];
+  offers: LodgingOffer[];
+  complete: boolean;
+};
+
+async function fetchMatchingOffers(
+  ctx: AppContext,
+  norm: NormalizedSearchArgs,
+  geo: HotelGeo,
+): Promise<{ offers: LodgingOffer[]; complete: boolean }> {
+  // WHY: currencyPreference is stored on the SHARED server-side Wanderlog
+  // session (POST /api/sessionStore), so setting it mutates global state for
+  // every other caller using this cookie — not just this search. Only mutate
+  // it when the caller explicitly asks for a currency; a default search must
+  // not silently change the session's currency preference. When no currency
+  // is passed, prices come back in whatever the session already uses, and the
+  // response is labelled from the offers' own currencyCode.
+  if (norm.currency) {
+    await ctx.rest.setCurrencyPreference(norm.currency);
+  }
+  const body = buildSearchBody(norm, geo);
+  const polled = await pollSearch({
+    fetchPage: () => ctx.rest.searchLodgings(body),
+    maxRetries: POLL_MAX_RETRIES,
+    sleep: defaultSleep,
+  });
+  return {
+    offers: filterByPropertyName(polled.offers, norm.property_name),
+    complete: polled.complete,
+  };
+}
+
+function buildSearchResult(
+  norm: NormalizedSearchArgs,
+  search: CompletedSearch,
+  defaultCurrency: string | undefined,
+): HotelSearchResult {
+  const format = norm.response_format ?? "concise";
+  const projected = search.offers.map(projectOffer);
+  const returned = projected.slice(0, norm.limit);
+  return {
+    geo: search.geo,
+    alternative_geos: search.alternative_geos,
+    currency: norm.currency ?? projected[0]?.currency ?? defaultCurrency ?? "USD",
+    complete: search.complete,
+    ...(search.complete ? {} : { note: INCOMPLETE_NOTE }),
+    total_results: search.offers.length,
+    returned: returned.length,
+    applied_filters: applied(norm),
+    available_filters: facetsForFormat(aggregateFacets(search.offers), format),
+    offers: offersForFormat(returned, format),
+  };
+}
+
+function facetsForFormat(facets: HotelAvailableFilters, format: ResponseFormat): HotelAvailableFilters {
+  return format === "concise" ? trimAmenityFacets(facets, CONCISE_AMENITY_FACETS) : facets;
+}
+
+function offersForFormat(offers: HotelOffer[], format: ResponseFormat): HotelOffer[] {
+  if (format === "detailed") return offers;
+  return offers.map(
+    ({
+      amenities: _a,
+      hotel_class: _hc,
+      lodging_type: _lt,
+      accommodation_type: _at,
+      thumbnail: _t,
+      ...essentials
+    }) => essentials as HotelOffer,
+  );
 }

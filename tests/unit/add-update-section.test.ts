@@ -20,6 +20,10 @@ function findSectionByRef(trip: TripPlan, ref: string): SectionMatch | null {
   return resolved.kind === "unique" ? resolved.match : null;
 }
 
+function sectionIdAt(trip: TripPlan, path: Json0Op["p"]): number {
+  return trip.itinerary.sections[path[2] as number]!.id;
+}
+
 function fresh(trip: TripPlan): TripPlan {
   return structuredClone(trip);
 }
@@ -570,6 +574,54 @@ describe("default list stored with an empty heading", () => {
     expect(result.content[0]!.text).toContain("default place list");
     expect(result.content[0]!.text).not.toContain('"normal"');
     expect(result.content[0]!.text).not.toContain("system section");
+  });
+});
+
+describe("duplicate headings targeted by trip order", () => {
+  const withDuplicateHeadings = (): TripPlan => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections.find((s) => s.id === 6)!.heading = "Hotels possibles - Hanoi";
+    trip.itinerary.sections.find((s) => s.id === 7)!.heading = "Hotels possibles - Hanoi";
+    return trip;
+  };
+
+  it("resolves '2nd <heading>' to the second list with that heading", () => {
+    expect(resolveSectionRef(withDuplicateHeadings(), "2nd Hotels possibles - Hanoi")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 7 } },
+    });
+    expect(resolveSectionRef(withDuplicateHeadings(), "first hotels possibles - hanoi")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 6 } },
+    });
+  });
+
+  it("renames the second duplicate so the heading is unique again", async () => {
+    const { ctx, submittedOps } = makeFakeContext(withDuplicateHeadings());
+    const result = await updateSection(ctx, {
+      trip_key: "T",
+      section: "2nd Hotels possibles - Hanoi",
+      heading: "Hotels possibles - Hoi An",
+    });
+    expect(result.isError).toBeUndefined();
+    expect(submittedOps[0]![0]).toMatchObject({ od: "Hotels possibles - Hanoi", oi: "Hotels possibles - Hoi An" });
+    expect(sectionIdAt(customSectionsTrip, submittedOps[0]![0]!.p)).toBe(7);
+  });
+
+  it("suggests the ordinal forms when a heading is ambiguous", async () => {
+    const { ctx } = makeFakeContext(withDuplicateHeadings());
+    const result = await deleteSection(ctx, { trip_key: "T", section: "Hotels possibles - Hanoi" });
+    expect(result.isError).toBe(true);
+    expect(result.content[0]!.text).toContain('"2nd Hotels possibles - Hanoi"');
+  });
+
+  it("still prefers an exact heading that happens to start with an ordinal", () => {
+    const trip = fresh(customSectionsTrip);
+    trip.itinerary.sections.find((s) => s.id === 7)!.heading = "2nd floor rooms";
+    expect(resolveSectionRef(trip, "2nd floor rooms")).toMatchObject({
+      kind: "unique",
+      match: { section: { id: 7 } },
+    });
   });
 });
 

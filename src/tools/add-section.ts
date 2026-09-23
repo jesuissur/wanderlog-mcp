@@ -72,11 +72,7 @@ export async function addSection(
       }
       let insertIndex: number;
       if (args.after_section) {
-        const found = requireUniqueSection(
-          trip,
-          args.after_section,
-          "Rename the duplicates in Wanderlog before choosing an insertion point.",
-        );
+        const found = requireUniqueSection(trip, args.after_section);
         insertIndex = found.index + 1;
       } else {
         insertIndex = trip.itinerary.sections.length;

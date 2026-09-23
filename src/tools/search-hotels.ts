@@ -121,7 +121,9 @@ export const searchHotelsInputSchema = {
   property_name: z
     .string()
     .optional()
-    .describe("Substring match against the property name."),
+    .describe(
+      "Keep only properties whose name contains this text. Case, accents, spaces and punctuation are ignored ('Hoianoi' matches 'Hội An Ơi Homestay').",
+    ),
   vacation_rental_amenities: z
     .array(z.string())
     .optional()
@@ -152,7 +154,11 @@ highest-popularity match is picked; up to 2 candidates appear in alternative_geo
 hint — re-call with one of those geo_ids if the wrong city was chosen.
 
 Use response_format='detailed' to include amenities, hotel class, and property type on each
-offer. The default 'concise' format omits those fields to keep token usage low.
+offer, and every amenity facet. The default 'concise' format omits those fields and lists only
+the 20 most common amenity facets to keep token usage low.
+
+If the response has complete: false, Wanderlog was still gathering vendor prices; call again
+with the same arguments for the full set.
 `.trim();
 
 export type SearchHotelsArgs = {
@@ -439,19 +445,26 @@ export async function resolveGeo(
 }
 
 const POLL_INTERVAL_MS = 800;
-const POLL_MAX_RETRIES = 3;
+const POLL_MAX_RETRIES = 6;
+const CONCISE_AMENITY_FACETS = 20;
+const INCOMPLETE_NOTE =
+  "Wanderlog was still aggregating vendors when polling stopped, so offers and prices may be partial. Call wanderlog_search_hotels again with the same arguments for the complete set.";
 
+/**
+ * Polls until Wanderlog reports the aggregation complete. An early page can
+ * already hold more offers than requested but misses vendors and properties,
+ * so stopping on offer count returned partial prices.
+ */
 export async function pollSearch(opts: {
   fetchPage: () => Promise<LodgingSearchResponse>;
-  limit: number;
   maxRetries: number;
   sleep: (ms: number) => Promise<void>;
 }): Promise<{ offers: LodgingOffer[]; complete: boolean }> {
   let lastResult: LodgingSearchResponse | null = null;
   for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
     lastResult = await opts.fetchPage();
-    if (lastResult.isComplete || lastResult.offers.length >= opts.limit) {
-      return { offers: lastResult.offers, complete: lastResult.isComplete };
+    if (lastResult.isComplete) {
+      return { offers: lastResult.offers, complete: true };
     }
     if (attempt < opts.maxRetries) {
       await opts.sleep(POLL_INTERVAL_MS);
@@ -465,6 +478,41 @@ export async function pollSearch(opts: {
 
 function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Wanderlog accepts filters.propertyName but ignores it (verified live: the
+ * same ~400 properties come back with or without it), so the name filter
+ * runs here. Accents, case, spacing and punctuation are ignored, so "Hoianoi"
+ * matches "Hội An Ơi Homestay".
+ */
+export function filterByPropertyName(
+  offers: LodgingOffer[],
+  propertyName: string | undefined,
+): LodgingOffer[] {
+  const wanted = compactName(propertyName ?? "");
+  if (!wanted) return offers;
+  return offers.filter((offer) => compactName(offer.lodging.name).includes(wanted));
+}
+
+function compactName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/đ/g, "d")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+/** Keeps the most common amenity facets; concise responses listed ~140 on every call. */
+function trimAmenityFacets(facets: HotelAvailableFilters, max: number): HotelAvailableFilters {
+  const ranked = Object.entries(facets.amenities).sort(([, a], [, b]) => b - a);
+  if (ranked.length <= max) return facets;
+  return {
+    ...facets,
+    amenities: Object.fromEntries(ranked.slice(0, max)),
+    amenities_omitted: ranked.length - max,
+  };
 }
 
 function applied(args: SearchHotelsArgs): Record<string, unknown> {
@@ -507,23 +555,25 @@ export async function searchHotels(
     }
     const body = buildSearchBody(norm, geo);
 
-    const { offers, complete } = await pollSearch({
+    const polled = await pollSearch({
       fetchPage: () => ctx.rest.searchLodgings(body),
-      limit: norm.limit,
       maxRetries: POLL_MAX_RETRIES,
       sleep: defaultSleep,
     });
+    const offers = filterByPropertyName(polled.offers, norm.property_name);
 
     const projected = offers.map(projectOffer);
     const sliced = projected.slice(0, norm.limit);
-    const facets = aggregateFacets(offers);
+    const format = norm.response_format ?? "concise";
+    const allFacets = aggregateFacets(offers);
+    const facets =
+      format === "concise" ? trimAmenityFacets(allFacets, CONCISE_AMENITY_FACETS) : allFacets;
     const currency =
       norm.currency ??
       projected[0]?.currency ??
       ctx.config.defaultCurrency ??
       "USD";
 
-    const format = norm.response_format ?? "concise";
     const offersForWire =
       format === "concise"
         ? sliced.map(
@@ -542,7 +592,8 @@ export async function searchHotels(
       geo,
       alternative_geos,
       currency,
-      complete,
+      complete: polled.complete,
+      ...(polled.complete ? {} : { note: INCOMPLETE_NOTE }),
       total_results: offers.length,
       returned: sliced.length,
       applied_filters: applied(norm),

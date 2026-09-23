@@ -463,4 +463,19 @@ describe("untitled list references", () => {
     expect(result.isError).toBeUndefined();
     expect(submittedOps[0]![0]!.p).toEqual(["itinerary", "sections", UNTITLED_NATIVE + 1]);
   });
+
+  it("names the untitled list in rename and delete confirmations", async () => {
+    const renamed = await updateSection(makeFakeContext(customSectionsTrip).ctx, {
+      trip_key: "T",
+      section: "2nd untitled list",
+      heading: "Rainy day",
+    });
+    expect(renamed.content[0]!.text).toContain('Renamed the 2nd untitled list → "Rainy day"');
+
+    const deleted = await deleteSection(makeFakeContext(customSectionsTrip).ctx, {
+      trip_key: "T",
+      section: "1st untitled list",
+    });
+    expect(deleted.content[0]!.text).toContain("Deleted the 1st untitled list from");
+  });
 });

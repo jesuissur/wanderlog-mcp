@@ -78,6 +78,15 @@ export function ambiguousSectionMessage(ref: string, count: number, retryHint: s
   return `Section reference "${ref}" is ambiguous: ${count} sections have that heading. ${retryHint}`;
 }
 
+/** Names a section in tool confirmations with the same labels wanderlog_get_trip shows. */
+export function describeSectionAt(trip: TripPlan, index: number): string {
+  const section = trip.itinerary.sections[index]!;
+  if (section.mode === "dayPlan" && section.date) return `day ${section.date}`;
+  const untitledLabel = untitledListLabels(trip).get(index);
+  if (untitledLabel) return `the ${untitledLabel}`;
+  return `section "${section.heading || "(untitled)"}"`;
+}
+
 /** Maps each untitled list's section index to the reference the section tools accept. */
 export function untitledListLabels(trip: TripPlan): Map<number, string> {
   const lists = findUntitledLists(trip);

@@ -225,11 +225,6 @@ export function isCustomSection(trip: TripPlan, index: number): boolean {
   return findPlacesToVisitSection(trip)?.index !== index;
 }
 
-export function describeSection(section: Section): string {
-  if (section.mode === "dayPlan" && section.date) return `day ${section.date}`;
-  return `section "${section.heading || "(untitled)"}"`;
-}
-
 export function findBlockById(
   trip: TripPlan,
   blockId: number,

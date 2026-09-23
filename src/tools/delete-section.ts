@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
-import { ambiguousSectionMessage } from "../resolvers/section.js";
+import { ambiguousSectionMessage, describeSectionAt } from "../resolvers/section.js";
 import {
   isCustomSection,
   resolveSectionRef,
@@ -77,9 +77,9 @@ export async function deleteSection(
       if (entry.snapshot.itinerary.sections.some((candidate) => candidate.id === sectionId)) {
         throw new WanderlogError("Deleted section is still present", "stale_target");
       }
-      return { label: section.heading || "(untitled)", tripTitle: trip.title };
+      return { label: describeSectionAt(trip, index), tripTitle: trip.title };
     });
-    const text = `Deleted section "${result.label}" from "${result.tripTitle}".`;
+    const text = `Deleted ${result.label} from "${result.tripTitle}".`;
     return { content: [{ type: "text", text }] };
   } catch (err) {
     const msg =

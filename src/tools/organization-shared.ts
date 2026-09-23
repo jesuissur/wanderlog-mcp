@@ -1,11 +1,10 @@
 import { WanderlogNotFoundError, WanderlogValidationError } from "../errors.js";
 import { resolveDay } from "../resolvers/day.js";
 import { resolvePlaceRef, type PlaceRefMatch } from "../resolvers/place-ref.js";
-import { ambiguousSectionMessage } from "../resolvers/section.js";
+import { ambiguousSectionMessage, describeSectionAt } from "../resolvers/section.js";
 import type { PlaceBlock, Section, TripPlan } from "../types.js";
 import { isPlaceBlock } from "../types.js";
 import {
-  describeSection,
   findDaySectionByDate,
   isSystemSection,
   resolveSectionRef,
@@ -31,7 +30,7 @@ export function resolveOrganizationTarget(
     if (!found) {
       throw new WanderlogValidationError(`Day "${args.day}" not found in trip.`);
     }
-    return { ...found, label: `day ${found.section.date}` };
+    return { ...found, label: describeSectionAt(trip, found.index) };
   }
 
   const ref = args.section!;
@@ -62,7 +61,7 @@ export function resolveOrganizationTarget(
   }
   return {
     ...resolved.match,
-    label: `section "${resolved.match.section.heading || "(untitled)"}"`,
+    label: describeSectionAt(trip, resolved.match.index),
   };
 }
 
@@ -87,7 +86,7 @@ export function resolvePlaceWithinSection(
       })
       .join("; ");
     throw new WanderlogValidationError(
-      `Place reference "${placeRef}" is ambiguous within ${describeSection(sectionMatch.section)}: ${names}. Retry with an ordinal such as "1st ${placeRef}".`,
+      `Place reference "${placeRef}" is ambiguous within ${describeSectionAt(trip, sectionMatch.index)}: ${names}. Retry with an ordinal such as "1st ${placeRef}".`,
     );
   }
   if (!isPlaceBlock(resolved.match.block)) {

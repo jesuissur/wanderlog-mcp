@@ -191,4 +191,28 @@ describe("movePlace into untitled lists", () => {
     expect(result.content[0]!.text).toContain('"2nd untitled list"');
     expect(submittedOps).toHaveLength(0);
   });
+
+  it("names untitled lists in its confirmation the way get_trip labels them", async () => {
+    const { ctx } = makeFakeContext(structuredClone(customSectionsTrip));
+    const intoList = await movePlace(ctx, {
+      trip_key: "T",
+      place_ref: "Schwartz's Deli on day 1",
+      target_section: "2nd untitled list",
+    });
+    expect(intoList.content[0]!.text).toContain("from day 2026-11-06 to the 2nd untitled list");
+  });
+
+  it("names the source untitled list when moving a place out of it", async () => {
+    const trip = structuredClone(customSectionsTrip);
+    const foodAndDrink = trip.itinerary.sections.find((s) => s.id === 6)!;
+    trip.itinerary.sections.find((s) => s.id === 4)!.blocks = [];
+    trip.itinerary.sections.find((s) => s.id === 8)!.blocks.push(...foodAndDrink.blocks.splice(0));
+    const { ctx } = makeFakeContext(trip);
+    const result = await movePlace(ctx, {
+      trip_key: "T",
+      place_ref: "Schwartz's Deli",
+      target_section: "Excursions",
+    });
+    expect(result.content[0]!.text).toContain('from the 2nd untitled list to section "Excursions"');
+  });
 });

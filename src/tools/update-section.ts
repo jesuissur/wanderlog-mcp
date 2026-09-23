@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { WanderlogError, WanderlogValidationError } from "../errors.js";
 import type { Json0Op } from "../ot/apply.js";
-import { ambiguousSectionMessage } from "../resolvers/section.js";
+import { ambiguousSectionMessage, describeSectionAt } from "../resolvers/section.js";
 import {
   isCustomSection,
   resolveSectionRef,
@@ -116,13 +116,12 @@ export async function updateSection(
         },
       ];
       await submit(ops);
-      return { oldHeading, tripTitle: trip.title };
+      return { oldLabel: describeSectionAt(trip, index), tripTitle: trip.title };
     });
     if ("response" in result && result.response) return result.response;
 
-    const oldLabel = result.oldHeading || "(untitled)";
     const newLabel = newHeading || "(untitled)";
-    const text = `Renamed section "${oldLabel}" → "${newLabel}" in "${result.tripTitle}".`;
+    const text = `Renamed ${result.oldLabel} → "${newLabel}" in "${result.tripTitle}".`;
     return { content: [{ type: "text", text }] };
   } catch (err) {
     const msg =

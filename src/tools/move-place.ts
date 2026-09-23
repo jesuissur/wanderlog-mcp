@@ -10,7 +10,8 @@ import {
   resolveOrganizationTarget,
   validatePosition,
 } from "./organization-shared.js";
-import { describeSection, findBlockById, submitOp } from "./shared.js";
+import { describeSectionAt } from "../resolvers/section.js";
+import { findBlockById, submitOp } from "./shared.js";
 
 export const movePlaceInputSchema = z.object({
   trip_key: z.string().min(1).describe("The trip containing the place to move."),
@@ -71,7 +72,7 @@ export async function movePlace(
             const name = isPlaceBlock(candidate.block)
               ? candidate.block.place.name
               : `${candidate.block.type} block`;
-            return `${index + 1}. ${name} in ${describeSection(candidate.section)}`;
+            return `${index + 1}. ${name} in ${describeSectionAt(trip, candidate.sectionIndex)}`;
           })
           .join("; ");
         throw new WanderlogValidationError(
@@ -107,7 +108,7 @@ export async function movePlace(
       if (sameSection && currentPlacePosition === position) {
         return {
           placeName: sourceBlock.place.name,
-          sourceLabel: describeSection(source.section),
+          sourceLabel: describeSectionAt(trip, source.sectionIndex),
           targetLabel: target.label,
           position,
           tripTitle: trip.title,
@@ -154,7 +155,7 @@ export async function movePlace(
 
       return {
         placeName: sourceBlock.place.name,
-        sourceLabel: describeSection(source.section),
+        sourceLabel: describeSectionAt(trip, source.sectionIndex),
         targetLabel: target.label,
         position,
         tripTitle: trip.title,
